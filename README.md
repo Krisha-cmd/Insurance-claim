@@ -14,7 +14,7 @@ A cloud-native system for processing medical insurance claims. It covers the ful
 - [Use case diagram](#use-case-diagram)
 - [Activity diagram](#activity-diagram)
 - [Happy path sequence diagram](#happy-path-sequence-diagram)
-
+- [High-level architecture](#high-level-architecture)
 
 ---
 
@@ -88,3 +88,10 @@ From step 4 to step 6 the adjuster can make changes, and each change needs a com
 | 8 | Audit | Records transaction decisions, state changes and recovery actions |
 
 
+## High-level Architecture
+![High-level architecture diagram](diagrams/architecture-diagram.svg)
+
+*Frontend and backend are separated by an API Gateway*. Browsers only ever speak REST; services talk to each other over gRPC.
+*One database per service*. Eligibility is stateless. Document Verification writes nothing to a database; it publishes its result as an event.
+*Settlement (3PC)*: Approval coordinates Claim Intake, Policy and Payment. Its transaction log lives in the Approval DB, so it can recover after a crash.
+Audit reads every claim event from the event bus, keeps the audit trail and windowed analytics, and publishes results to claim-analytics. The Ops Dashboard Backend serves them to the console
