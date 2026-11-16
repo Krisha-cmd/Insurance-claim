@@ -15,6 +15,9 @@ A cloud-native system for processing medical insurance claims. It covers the ful
 - [Activity diagram](#activity-diagram)
 - [Happy path sequence diagram](#happy-path-sequence-diagram)
 - [High-level architecture](#high-level-architecture)
+- [Data Design](#data-design)
+- [NoSQL DB](#nosql-db)
+- [Deployment Model](#deployment-model)
 
 ---
 
@@ -95,3 +98,406 @@ From step 4 to step 6 the adjuster can make changes, and each change needs a com
 *One database per service*. Eligibility is stateless. Document Verification writes nothing to a database; it publishes its result as an event.
 *Settlement (3PC)*: Approval coordinates Claim Intake, Policy and Payment. Its transaction log lives in the Approval DB, so it can recover after a crash.
 Audit reads every claim event from the event bus, keeps the audit trail and windowed analytics, and publishes results to claim-analytics. The Ops Dashboard Backend serves them to the console
+
+
+## Data Design
+
+### Authentication Database ER Diagram
+
+```mermaid
+erDiagram
+    USERS ||--o{ REFRESH_TOKENS : "is issued"
+    USERS ||--o{ LOGIN_ATTEMPTS : "makes"
+
+    USERS {
+        uuid id PK
+        varchar username UK
+        varchar email UK
+        varchar password_hash "BCrypt"
+        varchar role "POLICYHOLDER | ADJUSTER"
+        varchar status "ACTIVE | LOCKED"
+        uuid policyholder_id "ref: Policy DB, null for adjusters"
+        timestamp created_at
+        timestamp last_login_at
+    }
+
+    REFRESH_TOKENS {
+        uuid id PK
+        uuid user_id FK
+        varchar token_hash UK
+        timestamp expires_at
+        boolean revoked
+    }
+
+    LOGIN_ATTEMPTS {
+        bigint id PK
+        uuid user_id FK
+        boolean success
+        varchar ip_address
+        timestamp attempted_at
+    }
+```
+
+
+### Policy Database
+
+```mermaid
+erDiagram
+    POLICYHOLDER ||--|{ POLICY : "holds"
+    PLAN ||--o{ POLICY : "defines"
+    PLAN ||--|{ COVERAGE_RULE : "contains"
+    POLICY ||--|{ INSURED_MEMBER : "covers"
+    POLICY ||--|| POLICY_BALANCE : "tracks"
+    POLICY ||--o{ LIMIT_RESERVATION : "reserves (3PC)"
+    POLICYHOLDER {
+        uuid id PK
+        uuid user_id UK "ref: Login DB"
+        varchar full_name
+        date date_of_birth
+        varchar phone
+        varchar email
+    }
+    PLAN {
+        uuid id PK
+        varchar name
+        decimal deductible
+        decimal copay_pct
+        decimal room_rent_limit
+    }
+    COVERAGE_RULE {
+        uuid id PK
+        uuid plan_id FK
+        varchar treatment_category
+        boolean covered
+        decimal sub_limit
+        int waiting_period_days
+    }
+    POLICY {
+        uuid id PK
+        varchar policy_no UK
+        uuid policyholder_id FK
+        uuid plan_id FK
+        date start_date
+        date end_date
+        decimal sum_insured
+        varchar status "ACTIVE | LAPSED"
+    }
+    INSURED_MEMBER {
+        uuid id PK
+        uuid policy_id FK
+        varchar full_name
+        varchar relation "SELF | SPOUSE | CHILD | PARENT"
+        date date_of_birth
+    }
+    POLICY_BALANCE {
+        uuid policy_id PK, FK
+        decimal utilised
+        decimal reserved
+        bigint version "optimistic lock"
+    }
+    LIMIT_RESERVATION {
+        uuid id PK
+        uuid policy_id FK
+        uuid tx_id UK "3PC transaction"
+        uuid claim_id "ref: Claims DB"
+        decimal amount
+        varchar state "PREPARED | PRECOMMITTED | COMMITTED | ABORTED"
+        timestamp updated_at
+    }
+```
+
+### Claim Database
+
+```mermaid
+erDiagram
+    CLAIM ||--o{ CLAIM_DOCUMENT : "has"
+    CLAIM ||--|{ CLAIM_STATUS_HISTORY : "records"
+    CLAIM ||--o{ ELIGIBILITY_CHECK : "is checked by"
+    CLAIM ||--o{ SETTLEMENT_PARTICIPATION : "takes part in (3PC)"
+    CLAIM {
+        uuid id PK
+        varchar claim_no UK
+        varchar policy_no "ref: Policy DB"
+        uuid member_id "ref: Policy DB"
+        uuid submitted_by "ref: Login DB"
+        varchar hospital_name
+        date admission_date
+        date discharge_date
+        varchar diagnosis
+        varchar treatment_category
+        decimal claimed_amount
+        decimal approved_amount
+        varchar status "SUBMITTED ... SETTLED"
+        bigint version "optimistic lock"
+        timestamp created_at
+    }
+    CLAIM_DOCUMENT {
+        uuid id PK
+        uuid claim_id FK
+        varchar doc_type "DISCHARGE_SUMMARY | BILL | ..."
+        varchar s3_key UK
+        varchar checksum
+        varchar verification_status "PENDING | VERIFIED | REJECTED"
+        varchar rejection_reason
+        timestamp uploaded_at
+    }
+    CLAIM_STATUS_HISTORY {
+        bigint id PK
+        uuid claim_id FK
+        varchar from_status
+        varchar to_status
+        uuid changed_by "ref: Login DB"
+        varchar comment "required for adjuster changes"
+        timestamp changed_at
+    }
+    ELIGIBILITY_CHECK {
+        uuid id PK
+        uuid claim_id FK
+        boolean eligible
+        jsonb rule_results
+        boolean overridden
+        varchar override_comment
+        timestamp checked_at
+    }
+    SETTLEMENT_PARTICIPATION {
+        uuid tx_id PK "3PC transaction"
+        uuid claim_id FK
+        varchar state "PREPARED | PRECOMMITTED | COMMITTED | ABORTED"
+        timestamp updated_at
+    }
+```
+
+### Payments Database
+
+```mermaid
+erDiagram
+    PAYEE_ACCOUNT ||--o{ PAYMENT : "receives"
+    PAYMENT ||--|{ PAYMENT_ATTEMPT : "is tried by"
+    PAYMENT ||--|| PAYMENT_TX_LOG : "is governed by (3PC)"
+    PAYEE_ACCOUNT {
+        uuid id PK
+        uuid user_id "ref: Login DB"
+        varchar account_holder
+        varchar account_no_masked
+        varchar ifsc
+        boolean verified
+    }
+    PAYMENT {
+        uuid id PK
+        uuid claim_id UK "ref: Claims DB"
+        uuid payee_account_id FK
+        decimal amount
+        varchar currency "INR"
+        varchar status "AUTHORIZED | CAPTURED | VOIDED | FAILED"
+        varchar gateway_ref
+        timestamp created_at
+    }
+    PAYMENT_ATTEMPT {
+        bigint id PK
+        uuid payment_id FK
+        varchar action "AUTHORIZE | CAPTURE | VOID"
+        varchar result_code
+        varchar error_message
+        timestamp attempted_at
+    }
+    PAYMENT_TX_LOG {
+        uuid tx_id PK "3PC transaction"
+        uuid payment_id FK
+        varchar vote "YES | NO"
+        varchar state "PREPARED | PRECOMMITTED | COMMITTED | ABORTED"
+        timestamp updated_at
+    }
+```
+
+
+## NoSQL DB
+
+Use a single DynamoDB table, **`claims-analytics`**, with a single-table design.
+
+Items are distinguished by their partition key (`PK`) and sort key (`SK`) prefixes. Each screen in the Ops Console is served by a DynamoDB `Query` operation on a partition key.
+
+- **Flink** writes window aggregates and fraud detection items.
+- **Audit trail** and **settlement views** are written from `claim-events`, either by Flink as a secondary sink or by the Ops Dashboard Backend.
+- Results are also published to the Kafka `claim-analytics` topic, satisfying the event-streaming requirement.
+- DynamoDB acts as the queryable read model consumed by the Ops Console.
+
+### Single-Table Design
+
+| Item Type | PK | SK | Read By |
+|---|---|---|---|
+| Audit Event | `CLAIM#<claimId>` | `EVENT#<isoTs>#<eventId>` | Claim timeline, audit tab |
+| Window Aggregate | `METRIC#<name>#<window>` | `WINDOW#<windowStart>` | Analytics charts and KPI tiles |
+| Fraud Flag | `FRAUD#<policyNo>` | `WINDOW#<windowEnd>` | Fraud flags table |
+| Settlement View | `TX#<txId>` | `STATE` | 3PC settlement stepper |
+
+### Global Secondary Index (GSI)
+
+**GSI1** supports audit log searches by event type and time.
+
+| Attribute | Value |
+|---|---|
+| Partition Key | `GSI1PK = TYPE#<eventType>` |
+| Sort Key | `GSI1SK = <isoTs>` |
+
+This allows the Ops Console to retrieve audit events filtered by event type and ordered by timestamp.
+
+### TTL (Time to Live)
+
+Window aggregate and fraud flag items carry a `ttl` attribute to enable automatic expiration of older analytics data.
+
+For example, a retention period of **7 days** can be configured for these items.
+
+---
+
+### Document Examples
+
+#### Audit Event
+
+**Source:** `claim-events` topic.
+
+Represents a state transition or modification performed during claim processing.
+
+```json
+{
+  "PK": "CLAIM#c-1042",
+  "SK": "EVENT#2026-11-16T14:05:12.331Z#e-77f1",
+  "type": "AuditEvent",
+  "eventType": "ASSESSMENT_ADJUSTED",
+  "service": "assessment",
+  "actor": {
+    "id": "u-adj-01",
+    "role": "ADJUSTER"
+  },
+  "fromStatus": "ASSESSED",
+  "toStatus": "UNDER_REVIEW",
+  "change": {
+    "field": "proposedAmount",
+    "before": 82000,
+    "after": 76500
+  },
+  "comment": "Room rent above plan limit; capped per sub-limit",
+  "txId": null,
+  "phase": null,
+  "GSI1PK": "TYPE#ASSESSMENT_ADJUSTED",
+  "GSI1SK": "2026-11-16T14:05:12.331Z"
+}
+```
+
+#### Window Aggregate
+
+**Source:** Apache Flink, using a 1-minute tumbling window.
+
+Stores aggregated claim processing metrics for analytics dashboards and KPI tiles.
+
+```json
+{
+  "PK": "METRIC#claims_overview#1m",
+  "SK": "WINDOW#2026-11-16T14:05:00Z",
+  "type": "WindowAggregate",
+  "windowStart": "2026-11-16T14:05:00Z",
+  "windowEnd": "2026-11-16T14:06:00Z",
+  "countsByStatus": {
+    "SUBMITTED": 14,
+    "APPROVED": 9,
+    "REJECTED": 2,
+    "SETTLED": 7
+  },
+  "approvalRate": 0.82,
+  "totalClaimedInr": 1245000,
+  "avgClaimedInr": 88928,
+  "settlementCommits": 7,
+  "settlementAborts": 1,
+  "ttl": 1763906700
+}
+```
+
+#### Fraud Flag
+
+**Source:** Apache Flink, using a 10-minute sliding window.
+
+Flags policies associated with more than two claims within the configured window.
+
+```json
+{
+  "PK": "FRAUD#POL-2026-00017",
+  "SK": "WINDOW#2026-11-16T14:10:00Z",
+  "type": "FraudFlag",
+  "windowMinutes": 10,
+  "claimCount": 3,
+  "claimIds": [
+    "c-1040",
+    "c-1041",
+    "c-1042"
+  ],
+  "ttl": 1763907000
+}
+```
+
+#### Settlement View
+
+**Source:** `claim-events`, updated on every Three-Phase Commit (3PC) event.
+
+Maintains the current transaction state, including coordinator phase, participant votes, and participant states. This document powers the settlement stepper in the Ops Console.
+
+```json
+{
+  "PK": "TX#tx-9a21",
+  "SK": "STATE",
+  "type": "SettlementView",
+  "claimId": "c-1042",
+  "coordinator": "approval",
+  "phase": "PRECOMMIT",
+  "outcome": null,
+  "participants": {
+    "claim-intake": {
+      "vote": "YES",
+      "state": "PRECOMMITTED"
+    },
+    "policy": {
+      "vote": "YES",
+      "state": "PRECOMMITTED"
+    },
+    "payment": {
+      "vote": "YES",
+      "state": "PREPARED"
+    }
+  },
+  "startedAt": "2026-11-16T14:06:01Z",
+  "updatedAt": "2026-11-16T14:06:02Z"
+}
+```
+
+---
+
+### Data Flow
+
+The analytics pipeline follows this flow:
+
+1. Microservices publish claim lifecycle and transaction events to Kafka.
+2. Apache Flink consumes events from the relevant Kafka topics.
+3. Flink performs windowed aggregations and fraud detection.
+4. Audit events and settlement updates are materialized into DynamoDB, either through a Flink secondary sink or the Ops Dashboard Backend.
+5. Analytics results are published to the Kafka `claim-analytics` topic.
+6. The Ops Console reads the queryable DynamoDB projections.
+
+**Storage and streaming responsibilities:**
+
+| Component | Responsibility |
+|---|---|
+| Kafka (`claim-events`) | Source of claim lifecycle and transaction events |
+| Apache Flink | Stream processing, window aggregation, and fraud detection |
+| Kafka (`claim-analytics`) | Publishes processed analytics results |
+| DynamoDB (`claims-analytics`) | Queryable analytics, audit, fraud, and settlement read models |
+| Ops Dashboard Backend | Serves the console using DynamoDB queries |
+
+**Design principle:** Kafka is the event distribution layer, Flink is the stream-processing layer, and DynamoDB is the low-latency query layer for the Ops Console.
+
+
+## Deployment Model
+
+![Deployment/Infrastructure diagram](diagrams/deployment-diagram.svg)
+
+Nodes (3D boxes) are hardware or managed services, stereotyped «device», «executionEnvironment», «cloud» or «network». Nesting shows what runs inside what.
+Artifacts (folded-page icon) are what gets deployed: container images in the claims namespace, the Lambda jar, the Flink job, databases, topics and buckets.
+Communication paths are labelled with their protocol. Inside the cluster, pods talk over gRPC and REST through ClusterIP services.
+Everything inside the AWS region is created by Terraform. Workloads in EKS are deployed by Argo CD pulling from GitHub.
