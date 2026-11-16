@@ -1,0 +1,4 @@
+.spinner { display: inline-block; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; opacity: 0.8; flex: none; }
+.center { display: flex; align-items: center; justify-content: center; gap: var(--space-3); padding: var(--space-7) var(--space-4); color: var(--text-muted); }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }

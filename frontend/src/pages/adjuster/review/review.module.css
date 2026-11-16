@@ -1,0 +1,45 @@
+.header { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-4); flex-wrap: wrap; }
+.headerNums { display: flex; gap: var(--space-5); text-align: right; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+@media (max-width: 1100px) { .split { grid-template-columns: minmax(0, 1fr); } }
+.toolbar { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-3); }
+
+/* Assessment breakdown */
+.calc { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
+.calc td { padding: var(--space-2) 0; border-bottom: 1px dashed var(--border); }
+.calc td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.calc .op { color: var(--text-muted); width: 24px; }
+.calc .total td { border-bottom: none; border-top: 2px solid var(--text); font-weight: 600; font-size: var(--fs-lg); padding-top: var(--space-3); }
+.calc .note { color: var(--text-muted); font-size: var(--fs-xs); display: block; }
+
+/* Decision */
+.choice { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.choiceBtn { all: unset; cursor: pointer; border: 1.5px solid var(--border-strong); border-radius: var(--radius-md); padding: var(--space-4); display: flex; flex-direction: column; gap: 2px; }
+.choiceBtn:focus-visible { box-shadow: var(--focus-ring); }
+.choiceBtn:hover { background: var(--surface-muted); }
+.choiceBtn[aria-pressed='true'].approve { border-color: var(--success-fg); background: var(--success-bg); }
+.choiceBtn[aria-pressed='true'].reject { border-color: var(--danger-fg); background: var(--danger-bg); }
+.choiceTitle { font-weight: 600; }
+.confirm { border: 1px solid var(--border-strong); border-radius: var(--radius-md); padding: var(--space-4); background: var(--surface-muted); display: flex; flex-direction: column; gap: var(--space-3); }
+
+/* 3PC stepper */
+.phases { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+.phase { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--space-2); text-align: center; padding: 0 var(--space-2); }
+.phase::before { content: ''; position: absolute; top: 15px; left: -50%; right: 50%; height: 2px; background: var(--border); z-index: 0; }
+.phase:first-child::before { display: none; }
+.phase.done::before, .phase.active::before { background: var(--accent); }
+.phaseDot { position: relative; z-index: 1; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: var(--fs-sm); background: var(--surface); border: 2px solid var(--border-strong); color: var(--text-muted); }
+.done .phaseDot { background: var(--accent); border-color: var(--accent); color: #fff; }
+.active .phaseDot { border-color: var(--accent); color: var(--accent); }
+.failed .phaseDot { background: var(--danger-fg); border-color: var(--danger-fg); color: #fff; }
+.phaseName { font-weight: 600; font-size: var(--fs-sm); }
+.phaseState { font-size: var(--fs-xs); color: var(--text-muted); }
+
+.log { list-style: none; margin: 0; padding: 0; font-family: var(--font-mono); font-size: var(--fs-xs); max-height: 280px; overflow-y: auto; }
+.log li { display: grid; grid-template-columns: 72px 1fr; gap: var(--space-3); padding: 4px 0; border-bottom: 1px solid var(--border); }
+.log .error { color: var(--danger-fg); }
+.log .warn { color: var(--warning-fg); }
+
+.diff { font-family: var(--font-mono); font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.before { color: var(--danger-fg); }
+.after { color: var(--success-fg); }

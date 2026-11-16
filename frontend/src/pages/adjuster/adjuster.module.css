@@ -1,0 +1,30 @@
+.filters { display: flex; gap: var(--space-3); align-items: flex-end; flex-wrap: wrap; padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border); }
+.filters .field { min-width: 150px; }
+.pager { display: flex; justify-content: space-between; align-items: center; padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border); }
+
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
+@media (max-width: 1000px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4) var(--space-5); }
+.kpiLabel { font-size: var(--fs-sm); color: var(--text-secondary); }
+.kpiValue { font-size: var(--fs-3xl); font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; margin-top: var(--space-1); }
+.kpiSub { font-size: var(--fs-xs); color: var(--text-muted); }
+.charts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); }
+@media (max-width: 1100px) { .charts { grid-template-columns: minmax(0, 1fr); } }
+.chartBox { height: 260px; }
+.tableToggle { margin-top: var(--space-3); font-size: var(--fs-sm); }
+.tableToggle summary { cursor: pointer; color: var(--accent); }
+.tooltip { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); box-shadow: var(--shadow-overlay); font-size: var(--fs-xs); min-width: 140px; }
+.tooltip ul { list-style: none; margin: 4px 0 0; padding: 0; }
+.tooltip li { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+.swatch { width: 10px; height: 3px; border-radius: 2px; display: inline-block; margin-right: 6px; }
+.legend { display: flex; gap: var(--space-4); flex-wrap: wrap; font-size: var(--fs-xs); color: var(--text-secondary); margin-bottom: var(--space-2); }
+.legend span { display: inline-flex; align-items: center; }
+
+.chaosGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+@media (max-width: 1000px) { .chaosGrid { grid-template-columns: minmax(0, 1fr); } }
+.switch { all: unset; cursor: pointer; width: 44px; height: 24px; border-radius: 999px; background: var(--border-strong); position: relative; flex: none; transition: background 0.15s; }
+.switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform 0.15s; }
+.switch[aria-checked='true'] { background: var(--danger-fg); }
+.switch[aria-checked='true']::after { transform: translateX(20px); }
+.switch:focus-visible { box-shadow: var(--focus-ring); }
+.switch:disabled { opacity: 0.5; cursor: not-allowed; }
