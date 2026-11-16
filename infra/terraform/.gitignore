@@ -1,0 +1,14 @@
+# Terraform working directories, state and plans
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+# Local overrides (may contain personal values); dev.tfvars is committed on purpose
+terraform.tfvars
+*.auto.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
