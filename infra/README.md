@@ -21,7 +21,7 @@ The code is split into three **stacks**. A stack is a folder you run `terraform`
 | **ECR**: 9 repositories (`claims-dev/<service>`) | Container images | storage only |
 | **RDS PostgreSQL 16**, `db.t4g.micro`, 20 GB gp3, single-AZ | One database per service. The master password lives in Secrets Manager | ~$0.02 |
 | **MSK** Kafka 3.6.0, 2 × `kafka.t3.small` | Event bus between services (`claim-events`, `claim-analytics`, `doc-verified`) | ~$0.09 |
-| **EMR** 7.2.0 (Flink + Hadoop), 1 primary + 1 core `m5.xlarge`. Stops itself after 2 h idle | Runs the Audit Flink job (Kafka → results topic + DynamoDB) | ~$0.53 |
+| **EMR** 7.6.0 (Flink 1.20 + Hadoop), 1 primary + 1 core `m5.xlarge`. Stops itself after 2 h idle | Runs the Audit Flink job (Kafka → results topic + DynamoDB) | ~$0.53 |
 | **Lambda** `document-verification` (Java 21, SnapStart) | Event-driven, asynchronous document checks | per use (pennies) |
 | **SQS** `doc-upload-events` and `doc-verification-results`, each with a dead-letter queue | S3 → Lambda → Claim Intake | per use (pennies) |
 | **S3** buckets `documents`, `emr-logs` and `artifacts` | Claim documents (pre-signed uploads), EMR logs, jars | storage only |
@@ -207,6 +207,7 @@ CLUSTER_ID=$(terraform output -raw emr_cluster_id)
 ARTIFACTS=$(terraform output -raw artifacts_bucket)
 BROKERS=$(terraform output -raw msk_bootstrap_brokers)
 TABLE=$(terraform output -raw analytics_table_name)
+REGION=ap-south-1   # the region in dev.tfvars
 
 # upload the jar built from backend/analytics/audit-flink
 aws s3 cp ../../../backend/analytics/audit-flink/target/audit-flink.jar s3://$ARTIFACTS/flink/audit-flink.jar
@@ -214,12 +215,12 @@ aws s3 cp ../../../backend/analytics/audit-flink/target/audit-flink.jar s3://$AR
 # step 1: start a detached Flink YARN session; step 2: copy the jar to the primary node and run it in that session
 aws emr add-steps --cluster-id "$CLUSTER_ID" --steps \
   "Type=CUSTOM_JAR,Name=flink-session,ActionOnFailure=CONTINUE,Jar=command-runner.jar,Args=[flink-yarn-session,-d]" \
-  "Type=CUSTOM_JAR,Name=audit-flink,ActionOnFailure=CONTINUE,Jar=command-runner.jar,Args=[bash,-c,aws s3 cp s3://$ARTIFACTS/flink/audit-flink.jar /home/hadoop/audit-flink.jar && flink run -d /home/hadoop/audit-flink.jar --bootstrap-servers $BROKERS --source-topic claim-events --results-topic claim-analytics --table $TABLE]"
+  "Type=CUSTOM_JAR,Name=audit-flink,ActionOnFailure=CONTINUE,Jar=command-runner.jar,Args=[bash,-c,aws s3 cp s3://$ARTIFACTS/flink/audit-flink.jar /home/hadoop/audit-flink.jar && flink run -d /home/hadoop/audit-flink.jar --bootstrap $BROKERS --events-topic claim-events --results-topic claim-analytics --table $TABLE --region $REGION --checkpoint-dir s3://$ARTIFACTS/flink/checkpoints]"
 
 aws emr list-steps --cluster-id "$CLUSTER_ID" --query 'Steps[].{Name:Name,State:Status.State}' --output table
 ```
 
-**Check:** both steps reach `COMPLETED`. The job itself keeps running inside the session. The job arguments above are an example, so match them to the job's `main()`.
+**Check:** both steps reach `COMPLETED`. The job itself keeps running inside the session. The job arguments are described in [backend/analytics/audit-flink/README.md](../backend/analytics/audit-flink/README.md).
 
 Flink logs appear in the CloudWatch log group `/aws/emr/claims-dev/flink` (the `emr_flink_log_group` output). Grafana shows them in the **Flink job logs** panel. The full EMR logs are archived in `s3://claims-dev-emr-logs-<account_id>/`.
 
@@ -266,7 +267,7 @@ cd ../infra && terraform destroy -var-file=dev.tfvars
 | `node_min_size` / `node_desired_size` / `node_max_size` | `2 / 2 / 4` | Number of workers | Scaling, see the recipe below |
 | `rds_instance_class` / `rds_allocated_storage` | `db.t4g.micro` / `20` | Database size | Load tests |
 | `msk_broker_instance_type` / `msk_broker_count` / `msk_broker_volume_size` | `kafka.t3.small` / `2` / `10` | Kafka size | Higher throughput |
-| `emr_release_label` | `emr-7.2.0` | EMR and Flink version | A newer Flink |
+| `emr_release_label` | `emr-7.6.0` | EMR and Flink version (7.6.0+ ships Flink 1.20, which the job is built for) | A newer Flink |
 | `emr_primary_instance_type` / `emr_core_instance_type` / `emr_core_instance_count` | `m5.xlarge` / `m5.xlarge` / `1` | Flink cluster size | A bigger job, or AZ capacity errors |
 | `emr_idle_timeout_seconds` | `7200` | Idle EMR auto-termination | Longer or shorter idle windows |
 | `lambda_jar_path` / `lambda_handler` / `lambda_timeout_seconds` | see `dev.tfvars` | Lambda code, entry point and timeout | Your build produces a different jar |
