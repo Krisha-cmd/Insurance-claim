@@ -23,6 +23,8 @@ module "eks" {
       # Prefix delegation raises the pod limit of a t3.medium from 17 to 110. Without it,
       # 2 nodes cannot fit the platform add-ons plus the nine services.
       configuration_values = jsonencode({
+        # Enforce Kubernetes NetworkPolicies (k8s/base/network-policies.yaml) with the VPC CNI's eBPF agent.
+        enableNetworkPolicy = "true"
         env = {
           ENABLE_PREFIX_DELEGATION = "true"
           WARM_PREFIX_TARGET       = "1"

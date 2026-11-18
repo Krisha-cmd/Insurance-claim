@@ -1,0 +1,153 @@
+# Build → push to ECR → bump the image tags in k8s/overlays/<env> with a commit. Argo CD sees the commit and syncs.
+# CI never talks to the cluster.
+#
+#   push to main            → environment dev
+#   Run workflow (manual)   → choose dev or prod, optionally a git ref: promotion rebuilds that commit for prod.
+#                             Jib builds are reproducible, so the same commit gives the same image digest.
+#
+# Repository → Settings → Environments → dev / prod, variables:
+#   AWS_ROLE_ARN  the github_actions role from Terraform (infra output irsa_role_arns.github_actions,
+#                 enable_github_oidc = true and github_repository = "<owner>/<repo>" in that env's tfvars)
+#   AWS_REGION    e.g. ap-south-1
+name: deliver
+
+on:
+  push:
+    branches: [main]
+    paths: ["backend/**", "frontend/**", ".github/workflows/deliver.yml"]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment whose overlay gets the new tags
+        type: choice
+        options: [dev, prod]
+        default: dev
+      ref:
+        description: Commit, branch or tag to build (empty = the selected branch)
+        required: false
+        default: ""
+
+permissions:
+  contents: write   # the tag-bump commit
+  id-token: write   # OIDC → AWS, no stored keys
+
+concurrency:
+  group: deliver-${{ inputs.environment || 'dev' }}
+  cancel-in-progress: false
+
+env:
+  ENVIRONMENT: ${{ inputs.environment || 'dev' }}
+  SERVICES: login claim-intake policy approval payment gateway-simulator ops-dashboard
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ inputs.ref || github.sha }}" }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21", cache: maven }
+      - name: Unit and integration tests (Testcontainers uses the runner's Docker)
+        run: mvn -B -f backend/pom.xml verify
+
+  images:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'dev' }}
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    strategy:
+      fail-fast: true
+      matrix:
+        service: [login, claim-intake, policy, approval, payment, gateway-simulator, ops-dashboard]
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ inputs.ref || github.sha }}" }
+      - id: tag
+        run: echo "tag=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21", cache: maven }
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2   # also logs Docker in, which Jib reads
+      - name: Build and push with Jib
+        run: >
+          mvn -B -f backend/pom.xml -pl services/${{ matrix.service }} -am -DskipTests
+          package jib:build
+          -Dimage=${{ steps.ecr.outputs.registry }}/claims-${{ env.ENVIRONMENT }}/${{ matrix.service }}
+          -Dtag=${{ steps.tag.outputs.tag }}
+
+  frontend:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'dev' }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ inputs.ref || github.sha }}" }
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push
+        run: |
+          TAG=$(git rev-parse --short=7 HEAD)
+          IMAGE=${{ steps.ecr.outputs.registry }}/claims-${ENVIRONMENT}/frontend
+          docker build -t "$IMAGE:$TAG" -t "$IMAGE:latest" frontend
+          docker push "$IMAGE:$TAG"
+          docker push "$IMAGE:latest"
+
+  lambda-jar:
+    # The Lambda is deployed by Terraform (infra stack) from this jar, not by Argo CD.
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ inputs.ref || github.sha }}" }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21", cache: maven }
+      - run: mvn -B -f backend/pom.xml -pl functions/document-verification -am -DskipTests package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: document-verification-jar
+          path: backend/functions/document-verification/target/document-verification.jar
+
+  bump-overlay:
+    needs: [images, frontend]
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'dev' }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main }   # the overlay lives on main, whichever commit was built
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Install kustomize
+        run: |
+          curl -sSL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.3/kustomize_v5.4.3_linux_amd64.tar.gz | tar xz
+          sudo mv kustomize /usr/local/bin/
+      - name: Set the new tags
+        working-directory: k8s/overlays/${{ env.ENVIRONMENT }}
+        run: |
+          TAG=${{ needs.images.outputs.tag }}
+          REG=${{ steps.ecr.outputs.registry }}
+          for s in $SERVICES frontend; do
+            kustomize edit set image "$s=$REG/claims-$ENVIRONMENT/$s:$TAG"
+          done
+          kustomize build . > /dev/null   # still renders
+      - name: Commit (Argo CD syncs this)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add k8s/overlays/$ENVIRONMENT/kustomization.yaml
+          if git diff --cached --quiet; then echo "No tag change"; exit 0; fi
+          git commit -m "deploy($ENVIRONMENT): ${{ needs.images.outputs.tag }} [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main

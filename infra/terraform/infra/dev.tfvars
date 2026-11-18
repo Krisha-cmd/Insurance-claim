@@ -13,7 +13,7 @@ eks_public_access_cidrs           = ["0.0.0.0/0"]             # who may reach th
 rds_extra_allowed_security_groups = {}                        # extra SGs allowed into PostgreSQL, e.g. { bastion = "sg-..." }
 ecr_repositories = [                                          # one ECR repository per image
   "login", "claim-intake", "policy", "eligibility", "assessment",
-  "approval", "payment", "ops-dashboard", "frontend",
+  "approval", "payment", "gateway-simulator", "ops-dashboard", "frontend",
 ]
 
 # ---------------------------------------------------------------- sizing

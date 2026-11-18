@@ -1,0 +1,44 @@
+// UML component diagram, part 1: synchronous interfaces (REST through the ALB, gRPC inside the cluster).
+// Replaces diagrams/architecture-diagram.svg (commit d9d922c), which used colour-coded arrows, database cylinders and
+// an "API Gateway" box that the deployment does not have. Every arrow is a UML dependency (dashed, open arrowhead)
+// labelled with the interface used. Facts from the service READMEs, backend/proto and k8s/base/*/ingress.yaml.
+digraph G {
+  graph [rankdir=TB, fontname="Helvetica", fontsize=11, nodesep=0.3, ranksep=0.7, pad=0.2, newrank=true];
+  node  [shape=box, style="rounded,filled", fillcolor="#f4f6fb", color="#3b4252", fontname="Helvetica", fontsize=10, margin="0.12,0.06"];
+  edge  [style=dashed, arrowhead=vee, arrowsize=0.7, color="#3b4252", fontname="Helvetica", fontsize=8, fontcolor="#2e3440"];
+  spa  [label=<<font point-size="8">«component»</font><br/><b>Claims portal</b><br/><font point-size="8">React SPA (frontend pod)</font>>];
+  alb  [label=<<font point-size="8">«component»</font><br/><b>ALB Ingress</b><br/><font point-size="8">AWS Load Balancer Controller</font>>];
+  login   [label=<<font point-size="8">«component»</font><br/><b>Login</b><br/><font point-size="8">JWT issuer, JWKS</font>>];
+  ops     [label=<<font point-size="8">«component»</font><br/><b>Ops Dashboard</b>>];
+  approval[label=<<font point-size="8">«component» «3PC coordinator»</font><br/><b>Approval</b>>];
+  intake  [label=<<font point-size="8">«component» «3PC participant»</font><br/><b>Claim Intake</b>>];
+  policy  [label=<<font point-size="8">«component» «3PC participant»</font><br/><b>Policy</b>>];
+  payment [label=<<font point-size="8">«component» «3PC participant»</font><br/><b>Payment</b>>];
+  elig    [label=<<font point-size="8">«component» planned (#4)</font><br/><b>Eligibility</b>>, style="rounded,dashed,filled"];
+  assess  [label=<<font point-size="8">«component» planned (#5)</font><br/><b>Assessment</b>>, style="rounded,dashed,filled"];
+  gw      [label=<<font point-size="8">«component» «external system stub»</font><br/><b>Gateway simulator</b>>];
+  {rank=same; login; ops; approval;}
+  {rank=same; intake; payment;}
+  {rank=same; policy; elig; assess; gw;}
+  spa -> alb [label="REST / HTTPS"];
+  alb -> login [label="/api/auth"];
+  alb -> ops [label="/api/audit\n/api/analytics\n/api/ops"];
+  alb -> approval [label="/api/approvals"];
+  alb -> intake [label="/api/claims"];
+  alb -> policy [label="/api/policies"];
+  alb -> elig [label="/api/eligibility"];
+  alb -> assess [label="/api/assessments"];
+  approval -> intake [label="UpdateStatus,\nSettlementParticipant"];
+  approval -> policy [label="SettlementParticipant"];
+  approval -> payment [label="SettlementParticipant"];
+  approval -> assess [label="GetFinalAmount"];
+  intake -> policy [label="ValidateMember"];
+  intake -> elig [label="Check"];
+  intake -> assess [label="Assess"];
+  policy -> intake [label="GetClaim"];
+  payment -> intake [label="GetClaim"];
+  ops -> intake [label="GetClaim"];
+  ops -> approval [label="REST /internal/chaos"];
+  ops -> payment [label="REST /internal/chaos"];
+  payment -> gw [label="REST authorize,\ncapture, void"];
+}

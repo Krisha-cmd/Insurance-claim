@@ -1,0 +1,68 @@
+%% Source: GitHub issue #6 body (class diagram). Notation corrected to UML: attributes as name : Type,
+%% parameters as name: Type; see docs/design-document.md, "Diagram sources and corrections".
+classDiagram
+  direction LR
+  class PaymentParticipantGrpcService
+  class ThreePhaseParticipant~T~ {
+    <<abstract>>
+  }
+  class PaymentParticipant {
+    #prepare(canCommitRequest: CanCommitRequest) PaymentTxLog
+    #onPreCommit(paymentTxLog: PaymentTxLog)
+    #onCommit(paymentTxLog: PaymentTxLog)
+    #onAbort(paymentTxLog: PaymentTxLog)
+  }
+  class PaymentGatewayClient {
+    <<interface>>
+    +authorize(paymentId: UUID, amount: BigDecimal) GatewayResponse
+    +capture(authId: String) GatewayResponse
+    +voidAuth(authId: String) GatewayResponse
+  }
+  class HttpPaymentGatewayClient {
+    -http : RestClient
+  }
+  class PayeeAccount {
+    id : UUID
+    userId : UUID
+    accountNoMasked : String
+    ifsc : String
+    verified : boolean
+  }
+  class Payment {
+    id : UUID
+    claimId : UUID
+    amount : BigDecimal
+    status : PaymentStatus
+    authId : String
+    gatewayRef : String
+    version : long
+  }
+  class PaymentAttempt {
+    action : GatewayAction
+    resultCode : String
+    errorMessage : String
+    attemptedAt : Instant
+  }
+  class PaymentTxLog
+  class PaymentStatus {
+    <<enumeration>>
+    AUTHORIZED
+    CAPTURED
+    VOIDED
+    FAILED
+  }
+  class GatewayController {
+    +authorize()
+    +capture()
+    +voidAuth()
+    +setChaos(failureMode: FailureMode)
+  }
+  PaymentParticipantGrpcService --> PaymentParticipant
+  PaymentParticipant --|> ThreePhaseParticipant
+  PaymentParticipant --> PaymentGatewayClient
+  PaymentGatewayClient <|.. HttpPaymentGatewayClient
+  HttpPaymentGatewayClient ..> GatewayController : «call» REST
+  PayeeAccount "1" --> "0..*" Payment
+  Payment "1" *-- "1..*" PaymentAttempt
+  PaymentTxLog "1" -- "0..1" Payment
+  PaymentTxLog --|> ParticipantTx

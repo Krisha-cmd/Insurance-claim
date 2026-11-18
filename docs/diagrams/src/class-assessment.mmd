@@ -1,0 +1,51 @@
+%% Source: GitHub issue #5 body (class diagram). Notation corrected to UML: attributes as name : Type,
+%% parameters as name: Type; see docs/design-document.md, "Diagram sources and corrections".
+classDiagram
+  direction LR
+  class AssessmentController {
+    +get(claimId: UUID, user: CurrentUser) AssessmentResponse
+    +adjust(claimId: UUID, adjustRequest: AdjustRequest, user: CurrentUser) AssessmentResponse
+  }
+  class AssessmentGrpcService {
+    +assess(claimIdRequest: ClaimIdRequest) AssessmentResult
+    +getFinalAmount(claimIdRequest: ClaimIdRequest) AmountResult
+  }
+  class AssessmentService {
+    +assess(claimId: UUID) Assessment
+    +adjust(claimId: UUID, adjustRequest: AdjustRequest, user: CurrentUser) Assessment
+    +finalAmount(claimId: UUID) BigDecimal
+  }
+  class AssessmentCalculator {
+    +calculate(claimed: BigDecimal, coverage: Coverage, balance: Balance, category: String) Calculation
+  }
+  class Calculation {
+    <<record>>
+    lines : List~BreakdownLine~
+    proposed : BigDecimal
+  }
+  class Assessment {
+    id : UUID
+    claimId : UUID
+    claimedAmount : BigDecimal
+    proposedAmount : BigDecimal
+    finalAmount : BigDecimal
+    adjusted : boolean
+    version : long
+  }
+  class AssessmentAdjustment {
+    beforeAmount : BigDecimal
+    afterAmount : BigDecimal
+    comment : String
+    adjusterId : UUID
+    adjustedAt : Instant
+  }
+  class PolicyClient
+  class ClaimClient
+  AssessmentController --> AssessmentService
+  AssessmentGrpcService --> AssessmentService
+  AssessmentService --> AssessmentCalculator
+  AssessmentService --> PolicyClient
+  AssessmentService --> ClaimClient
+  AssessmentService --> AuditPublisher
+  AssessmentCalculator ..> Calculation
+  Assessment "1" *-- "0..*" AssessmentAdjustment

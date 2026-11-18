@@ -1,0 +1,78 @@
+%% Source: GitHub issue #1 body (class diagram). Notation corrected to UML: attributes as name : Type,
+%% parameters as name: Type; see docs/design-document.md, "Diagram sources and corrections".
+classDiagram
+  direction LR
+  class PolicyController {
+    +getMine(user: CurrentUser) List~PolicyResponse~
+    +getByNumber(policyNo: String, user: CurrentUser) PolicyResponse
+    +getCoverage(policyNo: String, user: CurrentUser) CoverageResponse
+  }
+  class PolicyGrpcService {
+    +getPolicy(policyNoRequest: PolicyNoRequest)
+    +getCoverage(policyNoRequest: PolicyNoRequest)
+    +getBalance(policyNoRequest: PolicyNoRequest)
+  }
+  class PolicyQueryService {
+    +findForHolder(holderId: UUID) List~Policy~
+    +getByNumber(policyNo: String) Policy
+    +assertCanView(policy: Policy, user: CurrentUser)
+  }
+  class LimitReservationParticipant {
+    #prepare(canCommitRequest: CanCommitRequest) LimitReservation
+    #onPreCommit(limitReservation: LimitReservation)
+    #onCommit(limitReservation: LimitReservation)
+    #onAbort(limitReservation: LimitReservation)
+  }
+  class ThreePhaseParticipant~T~ {
+    <<abstract>>
+  }
+  class Policyholder {
+    id : UUID
+    userId : UUID
+    fullName : String
+  }
+  class Plan {
+    id : UUID
+    name : String
+    deductible : BigDecimal
+    copayPct : BigDecimal
+  }
+  class CoverageRule {
+    treatmentCategory : String
+    covered : boolean
+    subLimit : BigDecimal
+    waitingPeriodDays : int
+  }
+  class Policy {
+    id : UUID
+    policyNo : String
+    startDate : LocalDate
+    endDate : LocalDate
+    sumInsured : BigDecimal
+    status : PolicyStatus
+  }
+  class InsuredMember {
+    id : UUID
+    fullName : String
+    relation : Relation
+  }
+  class PolicyBalance {
+    utilised : BigDecimal
+    reserved : BigDecimal
+    version : long
+    +remaining(sumInsured: BigDecimal) BigDecimal
+  }
+  class LimitReservation {
+    amount : BigDecimal
+  }
+  PolicyController --> PolicyQueryService
+  PolicyGrpcService --> PolicyQueryService
+  LimitReservationParticipant --|> ThreePhaseParticipant
+  LimitReservationParticipant --> PolicyBalance
+  Policyholder "1" --> "1..*" Policy
+  Plan "1" --> "0..*" Policy
+  Plan "1" *-- "1..*" CoverageRule
+  Policy "1" *-- "1..*" InsuredMember
+  Policy "1" *-- "1" PolicyBalance
+  Policy "1" --> "0..*" LimitReservation
+  LimitReservation --|> ParticipantTx

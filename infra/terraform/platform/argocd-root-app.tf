@@ -28,9 +28,16 @@ resource "kubernetes_secret_v1" "gitops_repo" {
   depends_on = [helm_release.argocd]
 }
 
-# The root "app of apps". It is created through the argocd-apps Helm chart
-# rather than kubernetes_manifest, because kubernetes_manifest needs the
-# Application CRD to exist at plan time (it does not on a fresh cluster).
+# The AppProject and the root "app of apps", read from gitops/argocd/ so Git holds the one definition
+# (gitops/README.md bootstraps the same files with kubectl when Terraform is not used). They are created
+# through the argocd-apps Helm chart rather than kubernetes_manifest, because kubernetes_manifest needs
+# the Application CRD to exist at plan time (it does not on a fresh cluster).
+locals {
+  gitops_dir   = "${path.module}/../../../gitops/argocd"
+  argo_project = yamldecode(file("${local.gitops_dir}/project.yaml"))
+  argo_root    = yamldecode(file("${local.gitops_dir}/root-app.yaml"))
+}
+
 resource "helm_release" "argocd_root_app" {
   count = var.gitops_repo_url != "" ? 1 : 0
 
@@ -41,28 +48,23 @@ resource "helm_release" "argocd_root_app" {
   namespace  = kubernetes_namespace_v1.argocd.metadata[0].name
 
   values = [yamlencode({
+    projects = {
+      (local.argo_project.metadata.name) = merge(local.argo_project.spec, {
+        namespace   = local.argo_project.metadata.namespace
+        sourceRepos = distinct(concat(local.argo_project.spec.sourceRepos, [var.gitops_repo_url]))
+      })
+    }
     applications = {
-      root = {
-        namespace = "argocd"
-        project   = "default"
-        source = {
+      (local.argo_root.metadata.name) = merge(local.argo_root.spec, {
+        namespace = local.argo_root.metadata.namespace
+        source = merge(local.argo_root.spec.source, {
           repoURL        = var.gitops_repo_url
           targetRevision = var.gitops_revision
           path           = var.gitops_path
-          directory      = { recurse = true }
-        }
-        destination = {
-          server    = "https://kubernetes.default.svc"
-          namespace = "argocd"
-        }
-        syncPolicy = {
-          automated = {
-            prune    = true
-            selfHeal = true
-          }
-          syncOptions = ["CreateNamespace=true"]
-        }
-      }
+          # One environment per cluster: gitops/apps/<env>.yaml.
+          directory = merge(local.argo_root.spec.source.directory, { include = "${var.env}.yaml" })
+        })
+      })
     }
   })]
 

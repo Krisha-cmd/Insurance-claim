@@ -6,6 +6,12 @@ resource "kubernetes_namespace_v1" "claims" {
   metadata {
     name = "claims"
   }
+
+  # k8s/base/namespace.yaml declares the same namespace for Argo CD (which adds its own labels and a
+  # never-prune annotation). Terraform keeps owning it, along with the Secrets inside.
+  lifecycle {
+    ignore_changes = [metadata[0].labels, metadata[0].annotations]
+  }
 }
 
 # IRSA service accounts. Their role ARNs contain the account ID, so they are

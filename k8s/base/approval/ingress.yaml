@@ -1,0 +1,27 @@
+# Joins the shared ALB (group "claims") created by the AWS Load Balancer Controller.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: approval
+  labels:
+    app.kubernetes.io/name: approval
+    app.kubernetes.io/part-of: claims
+  annotations:
+    alb.ingress.kubernetes.io/group.name: claims
+    alb.ingress.kubernetes.io/group.order: "10"
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /actuator/health/readiness
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /api/approvals
+            pathType: Prefix
+            backend:
+              service:
+                name: approval
+                port:
+                  name: http

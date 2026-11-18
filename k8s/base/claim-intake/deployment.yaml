@@ -1,0 +1,78 @@
+# Claim Intake: claims, uploads, verification results, checks, 3PC participant
+# Secrets (database credentials, JWT keys) and platform-endpoints are created by the Terraform platform
+# stack in the claims namespace; this file only references them by name, so no secret is in Git.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claim-intake
+  labels:
+    app.kubernetes.io/name: claim-intake
+    app.kubernetes.io/part-of: claims
+spec:
+  replicas: 1  # overlays set the count; the HPA scales from there
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: claim-intake
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: claim-intake
+        app.kubernetes.io/part-of: claims
+    spec:
+      serviceAccountName: claim-intake  # IRSA: created and annotated by Terraform (platform stack)
+      terminationGracePeriodSeconds: 30
+      affinity:
+        podAntiAffinity:  # spread replicas over nodes when possible
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels: { app.kubernetes.io/name: claim-intake }
+      containers:
+        - name: claim-intake
+          image: claim-intake  # each overlay's `images:` sets the ECR repository and tag
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: grpc
+              containerPort: 9090
+          envFrom:
+            - configMapRef:
+                name: platform-endpoints
+            - configMapRef:
+                name: claim-intake-config
+            - secretRef:
+                name: claims-db
+          resources:
+            requests: { cpu: 200m, memory: 384Mi }
+            limits: { cpu: "1", memory: 768Mi }
+          startupProbe:  # the JVM and Flyway take a while; liveness starts after this passes
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 5
+            failureThreshold: 36  # up to 3 minutes
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+            periodSeconds: 10
+            failureThreshold: 3
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000  # Jib images run as 1000:1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
