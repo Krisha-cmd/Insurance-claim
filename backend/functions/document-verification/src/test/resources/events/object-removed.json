@@ -1,0 +1,38 @@
+{
+  "Records": [
+    {
+      "eventVersion": "2.1",
+      "eventSource": "aws:s3",
+      "awsRegion": "ap-south-1",
+      "eventTime": "2026-11-18T10:00:00.000Z",
+      "eventName": "ObjectRemoved:Delete",
+      "userIdentity": {
+        "principalId": "AWS:AROAEXAMPLEID:claim-intake"
+      },
+      "requestParameters": {
+        "sourceIPAddress": "203.0.113.10"
+      },
+      "responseElements": {
+        "x-amz-request-id": "C3D13FE58DE4C810",
+        "x-amz-id-2": "FMyUVURIY8/IgAtTv8xRjskZQpcIZ9KG4V5Wp6S7S/JRWeUWerMUE5JgHvANOjpD"
+      },
+      "s3": {
+        "s3SchemaVersion": "1.0",
+        "configurationId": "claims-uploads",
+        "bucket": {
+          "name": "claims-dev-documents-123456789012",
+          "ownerIdentity": {
+            "principalId": "A3NL1KOZZKExample"
+          },
+          "arn": "arn:aws:s3:::claims-dev-documents-123456789012"
+        },
+        "object": {
+          "key": "claims/3f6c2a8e-1b4d-4c7a-9e2f-5d8b7a6c4e10/FINAL_BILL/0b9e2c71-5a3d-4f8e-8c1b-2d7e6f9a3b41-final_bill.pdf",
+          "size": 0,
+          "eTag": "9b2cf535f27731c974343645a3985328",
+          "sequencer": "0055AED6DCD90281E5"
+        }
+      }
+    }
+  ]
+}

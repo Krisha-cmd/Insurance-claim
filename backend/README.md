@@ -2,7 +2,7 @@
 
 Java 21 · Spring Boot 3.3 · Maven multi-module. One module per service. Active in the parent
 [`pom.xml`](pom.xml): `proto`, `common`, `participant`, `services/login`, `services/approval` and
-`services/claim-intake` and `services/policy`; the others are commented out and get switched on one at a time as they are built.
+`services/claim-intake`, `services/policy` and `functions/document-verification`; the others are commented out and get switched on one at a time as they are built.
 
 ```
 backend/
@@ -15,7 +15,8 @@ backend/
 ├── services/login/         login service: /api/auth/*, /.well-known/jwks.json
 ├── services/approval/      decisions + 3PC settlement coordinator (see its README)
 ├── services/claim-intake/  claims, uploads, verification results, checks, queue, 3PC participant (see its README)
-└── services/policy/        policies, members, coverage; 3PC participant reserving the sum insured (see its README)
+├── services/policy/        policies, members, coverage; 3PC participant reserving the sum insured (see its README)
+└── functions/document-verification/  AWS Lambda: S3 upload → checks → VERIFIED/REJECTED result (see its README)
 ```
 
 ## Prerequisites
