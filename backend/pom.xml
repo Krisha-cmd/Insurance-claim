@@ -27,10 +27,11 @@
         <module>services/claim-intake</module>
         <module>services/policy</module>
         <module>functions/document-verification</module>
+        <module>services/payment</module>
+        <module>services/gateway-simulator</module>
         <!-- Enabled one by one as each service is built:
         <module>services/eligibility</module>
         <module>services/assessment</module>
-        <module>services/payment</module>
         <module>analytics/audit-flink</module>
         -->
     </modules>
