@@ -1,0 +1,125 @@
+# On EKS: `claims-db` Secret (SPRING_DATASOURCE_*), `platform-endpoints` ConfigMap (DOCUMENTS_BUCKET,
+# RESULTS_QUEUE_URL, KAFKA_BOOTSTRAP, AWS_REGION), the claim-intake IRSA service account (S3 + SQS), and
+# the Deployment (GRPC_*_TARGET, JWT_JWKS_URI).
+
+spring:
+  application:
+    name: claim-intake
+  profiles:
+    default: local
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/claims}
+    username: ${SPRING_DATASOURCE_USERNAME:claims}
+    password: ${SPRING_DATASOURCE_PASSWORD:claims}
+    hikari:
+      maximum-pool-size: 15
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    locations: classpath:db/migration
+
+  jackson:
+    default-property-inclusion: always
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWT_JWKS_URI:http://localhost:8080/.well-known/jwks.json}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        max.block.ms: 5000
+        delivery.timeout.ms: 15000
+        request.timeout.ms: 5000
+        linger.ms: 5
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  error:
+    whitelabel:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+claims:
+  jwt:
+    issuer: claims-login
+
+  events:
+    topic: claim-events
+    kafka-bootstrap: ${KAFKA_BOOTSTRAP:}
+
+  aws:
+    region: ${AWS_REGION:ap-south-1}
+    # Only for LocalStack; empty in AWS.
+    endpoint: ${AWS_ENDPOINT_URL:}
+
+  grpc:
+    server:
+      port: ${GRPC_PORT:9090}
+      in-process-name: ""   # tests serve in-process instead of on a port
+    policy-target: ${GRPC_POLICY_TARGET:dns:///policy:9090}
+    eligibility-target: ${GRPC_ELIGIBILITY_TARGET:dns:///eligibility:9090}
+    assessment-target: ${GRPC_ASSESSMENT_TARGET:dns:///assessment:9090}
+
+  intake:
+    currency: INR
+    documents:
+      bucket: ${DOCUMENTS_BUCKET:}
+      upload-url-ttl: 10m
+      preview-url-ttl: 5m
+      # Must match the verification Lambda's ALLOWED_TYPES / MAX_SIZE_MB.
+      allowed-content-types: application/pdf,image/jpeg,image/png
+      max-size-mb: 10
+      # A claim moves to DOCS_VERIFIED once each of these has a VERIFIED document.
+      required-types: ${REQUIRED_DOC_TYPES:DISCHARGE_SUMMARY,FINAL_BILL,PRESCRIPTION,ID_PROOF}
+    results:
+      queue-url: ${RESULTS_QUEUE_URL:}
+      wait-seconds: 20
+      max-messages: 10
+    workflow:
+      check-timeout: 5s
+      # Claims stuck in DOCS_VERIFIED this long (e.g. after a restart) get their checks started again.
+      stuck-after: 60s
+      sweep-interval: PT60S
+    participant:
+      prepare-timeout: 5m
+      precommit-timeout: 2m
+      sweep-interval: PT15S
+
+---
+spring:
+  config:
+    activate:
+      on-profile: aws
+
+server:
+  forward-headers-strategy: native

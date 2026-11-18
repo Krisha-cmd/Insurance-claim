@@ -7,7 +7,7 @@ import com.claims.approval.domain.SettlementTx;
 import com.claims.approval.domain.SettlementTxParticipant;
 import com.claims.approval.domain.TxState;
 import com.claims.approval.domain.Vote;
-import com.claims.approval.events.AuditPublisher;
+import com.claims.common.event.EventPublisher;
 import com.claims.approval.events.Events;
 import com.claims.approval.grpc.ClaimClient;
 import com.claims.approval.grpc.ParticipantClient;
@@ -73,7 +73,7 @@ public class ThreePhaseCommitCoordinator {
     private final ParticipantClientRegistry registry;
     private final ClaimClient claims;
     private final ChaosSwitch chaos;
-    private final AuditPublisher audit;
+    private final EventPublisher audit;
     private final TransactionTemplate tx;
     private final TaskExecutor settlementExecutor;
     private final ExecutorService callExecutor;
@@ -86,7 +86,7 @@ public class ThreePhaseCommitCoordinator {
 
     public ThreePhaseCommitCoordinator(SettlementTxRepository txs, SettlementTxParticipantRepository participants,
                                        ParticipantClientRegistry registry, ClaimClient claims, ChaosSwitch chaos,
-                                       AuditPublisher audit, TransactionTemplate tx,
+                                       EventPublisher audit, TransactionTemplate tx,
                                        @Qualifier("settlementExecutor") TaskExecutor settlementExecutor,
                                        @Qualifier("participantCallExecutor") ExecutorService callExecutor,
                                        Clock clock, CoordinatorProperties coordinatorProps, ApprovalProperties approvalProps) {
@@ -130,7 +130,7 @@ public class ThreePhaseCommitCoordinator {
         }
 
         UUID txId = created.getTxId();
-        publish("SETTLEMENT_STARTED", created, "CAN_COMMIT", details(
+        publish("TX_STARTED", created, "CAN_COMMIT", details(
                 "attempt", created.getAttempt(),
                 "amount", amount,
                 "currency", currency,
@@ -229,10 +229,11 @@ public class ThreePhaseCommitCoordinator {
         Map<String, Boolean> yes = callAll(t, client -> client.canCommit(request),
                 (row, reply) -> row.recordVote(votedYes(reply) ? Vote.YES : Vote.NO, noReason(reply), clock.instant()),
                 VoteReply::getVote,
-                (name, outcome) -> publish("TX_VOTE", t, "CAN_COMMIT", details(
-                        "participant", name,
-                        "vote", outcome.reply() == null ? "NONE" : votedYes(outcome.reply()) ? "YES" : "NO",
-                        "reason", outcome.reply() != null ? noReason(outcome.reply()) : outcome.error())),
+                (name, outcome) -> audit.publish(Events.vote(t.getClaimId(), t.getTxId(), name,
+                        outcome.reply() == null ? "NONE" : votedYes(outcome.reply()) ? "YES" : "NO",
+                        details("reason", outcome.reply() != null ? noReason(outcome.reply()) : outcome.error(),
+                                "attempt", t.getAttempt()),
+                        clock.instant())),
                 ThreePhaseCommitCoordinator::votedYes);
         return !yes.isEmpty() && yes.values().stream().allMatch(Boolean::booleanValue);
     }
@@ -280,8 +281,8 @@ public class ThreePhaseCommitCoordinator {
         }
         SettlementTx done = transition(committing, CoordinatorState.COMMITTED);
         publish("TX_COMMITTED", done, "DONE", details("amount", done.getAmount()));
-        audit.publish(Events.claimSettled(done.getClaimId(), done.getTxId(),
-                details("amount", done.getAmount(), "currency", currency, "attempt", done.getAttempt()), clock.instant()));
+        audit.publish(Events.claimSettled(done.getClaimId(), done.getTxId(), done.getAmount(),
+                details("currency", currency, "attempt", done.getAttempt()), clock.instant()));
         log.info("Settlement {} COMMITTED for claim {}", done.getTxId(), done.getClaimId());
     }
 

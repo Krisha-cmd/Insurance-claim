@@ -151,14 +151,17 @@ The switch is in memory and one-shot, so it resets to `NONE` after a crash.
 | Event | When |
 | --- | --- |
 | `CLAIM_APPROVED`, `CLAIM_REJECTED` | Decision recorded (actor = the adjuster, with comment and amount) |
-| `SETTLEMENT_STARTED`, `SETTLEMENT_RETRIED` | A tx is logged (attempt, amount, participants) |
+| `TX_STARTED`, `SETTLEMENT_RETRIED` | A tx is logged (attempt, amount, participants) |
 | `TX_VOTE` | Each participant's vote, or `NONE` with the error |
 | `TX_PRECOMMIT`, `TX_PRECOMMIT_ACKS` | Phase 2 logged; who acknowledged |
 | `TX_DOCOMMIT`, `TX_DOCOMMIT_INCOMPLETE`, `TX_COMMITTED`, `CLAIM_SETTLED` | Phase 3 |
 | `TX_ABORT`, `TX_ABORTED` | Abort logged / finished (with reason) |
 | `TX_RECOVERY`, `COORDINATOR_CRASHED` | Recovery action; chaos crash |
 
-Every `TX_*` event carries `txId` and `phase`. With no `KAFKA_BOOTSTRAP` (MSK disabled), events are only
+Every event uses the shared envelope in `common` (`ClaimEvent`), which is what the Audit Flink job reads:
+`occurredAt`, top-level `amount`, and on `TX_VOTE` top-level `participant` / `vote` / `participantState`.
+Approval never sets `toStatus`: Claim Intake owns the claim status and emits `CLAIM_STATUS_CHANGED` for
+every change, so the Flink job counts each status once. Every `TX_*` event carries `txId` and `phase`. With no `KAFKA_BOOTSTRAP` (MSK disabled), events are only
 logged; the coordinator log in Postgres stays the source of truth either way.
 
 ## Data (Approval DB)

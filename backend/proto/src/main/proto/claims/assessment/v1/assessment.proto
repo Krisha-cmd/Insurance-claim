@@ -3,14 +3,34 @@ syntax = "proto3";
 
 package claims.assessment.v1;
 
+import "claims/claim/v1/claim.proto";
+
 option java_multiple_files = true;
 option java_package = "com.claims.proto.assessment.v1";
 option java_outer_classname = "AssessmentProto";
 
 service AssessmentService {
-  // The payable amount after any adjuster adjustment.
+  // Computes the payable amount for a claim (sub-limits, deductible, co-pay). Called by Claim Intake.
+  rpc Assess(AssessRequest) returns (AssessReply);
+
+  // The payable amount after any adjuster adjustment. Called by Approval.
   // NOT_FOUND if the claim is unknown, FAILED_PRECONDITION if it has not been assessed yet.
   rpc GetFinalAmount(GetFinalAmountRequest) returns (FinalAmountReply);
+}
+
+message AssessRequest {
+  claims.claim.v1.ClaimDetails claim = 1;
+}
+
+message AssessmentLine {
+  string label = 1;      // e.g. "Room rent above plan limit"
+  string amount = 2;     // decimal as text; negative for deductions
+}
+
+message AssessReply {
+  string proposed_amount = 1;   // decimal as text
+  string currency = 2;
+  repeated AssessmentLine lines = 3;
 }
 
 message GetFinalAmountRequest {

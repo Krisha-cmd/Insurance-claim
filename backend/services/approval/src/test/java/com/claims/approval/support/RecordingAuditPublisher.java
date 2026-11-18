@@ -1,13 +1,13 @@
 package com.claims.approval.support;
 
-import com.claims.approval.events.AuditPublisher;
+import com.claims.common.event.EventPublisher;
 import com.claims.common.event.ClaimEvent;
 
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-public class RecordingAuditPublisher implements AuditPublisher {
+public class RecordingAuditPublisher implements EventPublisher {
 
     private final List<ClaimEvent> events = new CopyOnWriteArrayList<>();
 

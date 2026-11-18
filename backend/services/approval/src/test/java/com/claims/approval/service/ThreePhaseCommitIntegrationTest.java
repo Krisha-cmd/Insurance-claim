@@ -81,11 +81,19 @@ class ThreePhaseCommitIntegrationTest extends IntegrationTestBase {
 
         assertThat(CLAIMS.statusOf(claimId)).isEqualTo(ClaimStatus.APPROVED);
         assertThat(events().typesFor(claimId)).containsSubsequence(
-                "CLAIM_APPROVED", "SETTLEMENT_STARTED", "TX_PRECOMMIT", "TX_DOCOMMIT", "TX_COMMITTED", "CLAIM_SETTLED");
+                "CLAIM_APPROVED", "TX_STARTED", "TX_PRECOMMIT", "TX_DOCOMMIT", "TX_COMMITTED", "CLAIM_SETTLED");
         assertThat(events().typesFor(claimId).stream().filter("TX_VOTE"::equals)).hasSize(3);
         assertThat(event(claimId, "TX_COMMITTED").txId()).isEqualTo(txId);
         assertThat(event(claimId, "TX_PRECOMMIT").phase()).isEqualTo("PRE_COMMIT");
-        assertThat(event(claimId, "CLAIM_SETTLED").toStatus()).isEqualTo("SETTLED");
+        assertThat(event(claimId, "CLAIM_SETTLED").amount()).isEqualByComparingTo("67500.00");
+        assertThat(events().forClaim(claimId)).as("status is owned by Claim Intake")
+                .allSatisfy(e -> assertThat(e.toStatus()).isNull());
+        assertThat(events().forClaim(claimId).stream().filter(e -> e.eventType().equals("TX_VOTE")))
+                .allSatisfy(e -> {
+                    assertThat(e.participant()).isIn("claim-intake", "policy", "payment");
+                    assertThat(e.vote()).isEqualTo("YES");
+                    assertThat(e.participantState()).isEqualTo("PREPARED");
+                });
     }
 
     @Test
@@ -108,7 +116,7 @@ class ThreePhaseCommitIntegrationTest extends IntegrationTestBase {
         assertThat(view.participants()).filteredOn(p -> p.name().equals("PAYMENT")).singleElement()
                 .satisfies(p -> assertThat(p.vote()).isEqualTo("NO"));
         assertThat(view.participants()).allSatisfy(p -> assertThat(p.aborted()).isTrue());
-        assertThat(events().typesFor(claimId)).containsSubsequence("SETTLEMENT_STARTED", "TX_ABORT", "TX_ABORTED")
+        assertThat(events().typesFor(claimId)).containsSubsequence("TX_STARTED", "TX_ABORT", "TX_ABORTED")
                 .doesNotContain("TX_PRECOMMIT", "CLAIM_SETTLED");
     }
 

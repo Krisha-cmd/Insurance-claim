@@ -21,10 +21,11 @@
     <modules>
         <module>proto</module>
         <module>common</module>
+        <module>participant</module>
         <module>services/login</module>
         <module>services/approval</module>
-        <!-- Enabled one by one as each service is built:
         <module>services/claim-intake</module>
+        <!-- Enabled one by one as each service is built:
         <module>services/policy</module>
         <module>services/eligibility</module>
         <module>services/assessment</module>
@@ -63,6 +64,18 @@
                 <groupId>com.claims</groupId>
                 <artifactId>proto</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.claims</groupId>
+                <artifactId>participant</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.claims</groupId>
+                <artifactId>participant</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>com.google.protobuf</groupId>
