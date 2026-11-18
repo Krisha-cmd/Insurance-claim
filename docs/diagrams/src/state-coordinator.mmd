@@ -1,0 +1,16 @@
+%% Source: backend/services/approval/README.md (ASCII state line + "Recovery" table) and
+%% ThreePhaseCommitCoordinator. Drawn as a UML state machine: trigger [guard] / effect. Each state is written to the
+%% coordinator log before the phase's messages are sent.
+stateDiagram-v2
+    direction LR
+    [*] --> WAITING_VOTES : approve / log tx, send CanCommit
+    WAITING_VOTES --> PRECOMMITTING : [all votes YES] / send PreCommit
+    WAITING_VOTES --> ABORTING : [a NO, timeout or error] / send Abort
+    WAITING_VOTES --> ABORTED : recovery / send Abort
+    PRECOMMITTING --> COMMITTING : [acks in or 5 s] / send DoCommit
+    PRECOMMITTING --> COMMITTED : recovery / send DoCommit
+    COMMITTING --> COMMITTED : [all DoCommit acked]
+    COMMITTING --> COMMITTING : [an ack missing] recovery / resend DoCommit
+    ABORTING --> ABORTED : Abort sent (or recovery)
+    COMMITTED --> [*]
+    ABORTED --> [*]

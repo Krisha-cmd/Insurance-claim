@@ -1,0 +1,52 @@
+# Checks on every pull request: the Kubernetes manifests render and match their schemas, Terraform is
+# formatted and valid, and the backend tests pass. No AWS access, no cluster.
+name: validate
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kubernetes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kustomize and kubeconform
+        run: |
+          curl -sSL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.3/kustomize_v5.4.3_linux_amd64.tar.gz | tar xz
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kustomize kubeconform /usr/local/bin/
+      - name: Render and validate (CRDs such as ServiceMonitor and Argo CD's from the CRDs catalog)
+        run: |
+          SCHEMAS="-schema-location default -schema-location https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
+          for env in dev prod; do
+            kustomize build k8s/overlays/$env | kubeconform -strict -summary $SCHEMAS
+          done
+          for s in eligibility assessment; do   # not in the overlays yet
+            kustomize build k8s/base/$s | kubeconform -strict -summary $SCHEMAS
+          done
+          kubeconform -strict -summary $SCHEMAS gitops/argocd gitops/apps
+
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform -chdir=infra/terraform fmt -recursive -check
+      - name: Validate each stack
+        run: |
+          for s in bootstrap infra platform; do
+            terraform -chdir=infra/terraform/$s init -backend=false -input=false
+            terraform -chdir=infra/terraform/$s validate
+          done
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21", cache: maven }
+      - run: mvn -B -f backend/pom.xml verify

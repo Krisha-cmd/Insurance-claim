@@ -1,0 +1,32 @@
+%% Source: README.md, "Authentication Database ER Diagram". Corrected from V1__init.sql: login_attempts.user_id is nullable (unknown username).
+erDiagram
+    USERS ||--o{ REFRESH_TOKENS : "is issued"
+    USERS |o--o{ LOGIN_ATTEMPTS : "makes"
+
+    USERS {
+        uuid id PK
+        varchar username UK
+        varchar email UK
+        varchar password_hash "BCrypt"
+        varchar role "POLICYHOLDER | ADJUSTER"
+        varchar status "ACTIVE | LOCKED"
+        uuid policyholder_id "ref: Policy DB, null for adjusters"
+        timestamp created_at
+        timestamp last_login_at
+    }
+
+    REFRESH_TOKENS {
+        uuid id PK
+        uuid user_id FK
+        varchar token_hash UK
+        timestamp expires_at
+        boolean revoked
+    }
+
+    LOGIN_ATTEMPTS {
+        bigint id PK
+        uuid user_id FK "nullable"
+        boolean success
+        varchar ip_address
+        timestamp attempted_at
+    }

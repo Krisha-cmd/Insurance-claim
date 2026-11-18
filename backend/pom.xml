@@ -51,6 +51,10 @@
         <!-- Container image settings (Jib). Override on the command line:
              -Dimage=<registry>/<repo>   -Dtag=<tag>
              Without -Dtag the image is tagged with the short Git commit id. -->
+        <!-- Spring Boot 3.3.5 manages Testcontainers 1.19.8, which talks Docker API 1.32. Docker Engine 29
+             (GitHub-hosted runners) rejects API versions below 1.44; 1.21.4 negotiates the version. -->
+        <testcontainers.version>1.21.4</testcontainers.version>
+
         <image>claims/${project.artifactId}</image>
         <tag>${git.commit.id.abbrev}</tag>
     </properties>

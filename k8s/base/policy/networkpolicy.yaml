@@ -1,0 +1,32 @@
+# Who may connect to policy. Everything else is refused by default-deny-ingress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-policy
+  labels:
+    app.kubernetes.io/name: policy
+    app.kubernetes.io/part-of: claims
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: policy
+  policyTypes: [Ingress]
+  ingress:
+    # The ALB (target type ip) connects from the public subnets.
+    - from:
+        - ipBlock: { cidr: 10.20.200.0/24 }
+        - ipBlock: { cidr: 10.20.201.0/24 }
+      ports:
+        - port: http
+    # Prometheus (kube-prometheus-stack) scrapes /actuator/prometheus.
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: observability } }
+      ports:
+        - port: http
+    - from:
+        - podSelector: { matchLabels: { app.kubernetes.io/name: approval } }
+        - podSelector: { matchLabels: { app.kubernetes.io/name: claim-intake } }
+        - podSelector: { matchLabels: { app.kubernetes.io/name: eligibility } }
+        - podSelector: { matchLabels: { app.kubernetes.io/name: assessment } }
+      ports:
+        - port: grpc

@@ -1,0 +1,41 @@
+// Source: backend/analytics/audit-flink/README.md "Pipeline" (mermaid flowchart). Redrawn as a UML activity diagram:
+// initial node, accept-event action, fork bar, actions (rounded), decision with guards, object nodes (rectangles),
+// flow final for dropped elements. Corrected: one guard per decision branch, explicit forks for multiple outputs. The job is unbounded, so there is no activity final node.
+digraph G {
+  graph [rankdir=TB, fontname="Helvetica", fontsize=10, nodesep=0.35, ranksep=0.4, pad=0.2];
+  node  [fontname="Helvetica", fontsize=9, color="#3b4252"];
+  edge  [arrowhead=vee, arrowsize=0.6, color="#3b4252", fontname="Helvetica", fontsize=8];
+  init [shape=circle, style=filled, fillcolor="#2e3440", label="", width=0.18];
+  recv [shape=cds, style=filled, fillcolor="#f4f6fb", label="receive event from claim-events\n(KafkaSource, group audit-flink,\nevent time = occurredAt, 10 s out-of-order)", margin="0.15,0.05"];
+  valid [shape=diamond, label="", width=0.3, height=0.3];
+  drop [shape=circle, label="X", fixedsize=true, width=0.22, fontsize=9];
+  fork [shape=box, style=filled, fillcolor="#2e3440", label="", height=0.04, width=6.5];
+  node [shape=box, style="rounded,filled", fillcolor="#f4f6fb"];
+  a1 [label="build audit item\n(every event with a claimId)"];
+  o1 [label="1-min tumbling window\nClaimsOverviewAggregate"];
+  f0 [label="filter CLAIM_CREATED,\nkeyBy policyNo"];
+  f1 [label="10-min window, 1-min slide\nFraudCountAggregate"];
+  fd [shape=diamond, style="", label="", width=0.3, height=0.3];
+  fdrop [shape=circle, style="", label="X", fixedsize=true, width=0.22, fontsize=9];
+  ff [shape=box, style=filled, fillcolor="#2e3440", label="", height=0.04, width=1.4];
+  of [shape=box, style=filled, fillcolor="#2e3440", label="", height=0.04, width=1.4];
+  t0 [label="filter TX_* events,\nkeyBy txId"];
+  t1 [label="SettlementViewFunction\n(ValueState, TTL 1 day)"];
+  node [shape=box, style="filled", fillcolor="#ffffff"];
+  ddb [label=":DynamoDB claims-analytics\n[audit | overview | fraud | settlement item]"];
+  kan [label=":Kafka claim-analytics\n[WindowAggregate | FraudFlag]"];
+
+  init -> recv -> valid;
+  valid -> drop [label="[not valid JSON or\nmissing eventId/type/occurredAt]"];
+  valid -> fork [label="[valid]"];
+  fork -> a1; fork -> o1; fork -> f0; fork -> t0;
+  f0 -> f1 -> fd;
+  fd -> fdrop [label="[count ≤ 2]"];
+  t0 -> t1;
+  a1 -> ddb; t1 -> ddb;
+  fd -> ff [label="[count > 2]"];
+  ff -> ddb;
+  o1 -> of; of -> ddb; of -> kan;
+  ff -> kan;
+  {rank=same; ddb; kan;}
+}

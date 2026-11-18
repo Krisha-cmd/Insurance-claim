@@ -1,0 +1,23 @@
+# Who may connect to gateway-simulator. Everything else is refused by default-deny-ingress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-simulator
+  labels:
+    app.kubernetes.io/name: gateway-simulator
+    app.kubernetes.io/part-of: claims
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: gateway-simulator
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: { matchLabels: { app.kubernetes.io/name: payment } }
+      ports:
+        - port: http
+    # Prometheus (kube-prometheus-stack) scrapes /actuator/prometheus.
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: observability } }
+      ports:
+        - port: http

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: approval
+  labels:
+    app.kubernetes.io/name: approval
+    app.kubernetes.io/part-of: claims
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: approval
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

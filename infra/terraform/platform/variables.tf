@@ -37,9 +37,9 @@ variable "gitops_revision" {
 }
 
 variable "gitops_path" {
-  description = "Directory in the repo holding the child Application manifests (app of apps)."
+  description = "Directory in the repo holding the per-environment Application manifests (app of apps)."
   type        = string
-  default     = "k8s/apps"
+  default     = "gitops/apps"
 }
 
 variable "gitops_repo_private" {

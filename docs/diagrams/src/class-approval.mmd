@@ -1,0 +1,83 @@
+%% Source: GitHub issue #7 body (class diagram). Notation corrected to UML: attributes as name : Type,
+%% parameters as name: Type; see docs/design-document.md, "Diagram sources and corrections".
+classDiagram
+  direction LR
+  class ApprovalController {
+    +decide(claimId: UUID, decisionRequest: DecisionRequest, user: CurrentUser) DecisionResponse
+    +settlement(claimId: UUID) SettlementView
+    +retry(claimId: UUID) DecisionResponse
+  }
+  class ApprovalService {
+    +decide(claimId: UUID, decisionRequest: DecisionRequest, user: CurrentUser) DecisionResponse
+    +view(claimId: UUID) SettlementView
+    +retry(claimId: UUID) DecisionResponse
+  }
+  class ThreePhaseCommitCoordinator {
+    +start(claimId: UUID, amount: BigDecimal) UUID
+    -collectVotes(settlementTx: SettlementTx) boolean
+    -preCommitAll(settlementTx: SettlementTx)
+    -commitAll(settlementTx: SettlementTx)
+    -abortAll(settlementTx: SettlementTx)
+  }
+  class CoordinatorRecovery {
+    +onStartup()
+    +sweep()
+  }
+  class ChaosSwitch {
+    -mode : ChaosMode
+    +set(chaosMode: ChaosMode)
+    +maybeCrash(coordinatorState: CoordinatorState)
+  }
+  class ParticipantClientRegistry {
+    +all() List~ParticipantClient~
+  }
+  class ParticipantClient {
+    name : String
+    +canCommit(canCommitRequest: CanCommitRequest) VoteReply
+    +preCommit(txId: UUID) AckReply
+    +doCommit(txId: UUID) AckReply
+    +abort(txId: UUID) AckReply
+  }
+  class AssessmentClient
+  class ClaimClient
+  class ApprovalDecision {
+    claimId : UUID
+    decision : Decision
+    amount : BigDecimal
+    comment : String
+    adjusterId : UUID
+  }
+  class SettlementTx {
+    txId : UUID
+    claimId : UUID
+    amount : BigDecimal
+    state : CoordinatorState
+    attempt : int
+    version : long
+  }
+  class SettlementTxParticipant {
+    participant : String
+    vote : Vote
+    state : TxState
+    lastContactAt : Instant
+  }
+  class CoordinatorState {
+    <<enumeration>>
+    WAITING_VOTES
+    PRECOMMITTING
+    COMMITTING
+    COMMITTED
+    ABORTING
+    ABORTED
+  }
+  ApprovalController --> ApprovalService
+  ApprovalService --> ThreePhaseCommitCoordinator
+  ApprovalService --> AssessmentClient
+  ApprovalService --> ClaimClient
+  ThreePhaseCommitCoordinator --> ParticipantClientRegistry
+  ParticipantClientRegistry o-- ParticipantClient
+  ThreePhaseCommitCoordinator --> ChaosSwitch
+  ThreePhaseCommitCoordinator --> AuditPublisher
+  CoordinatorRecovery --> ThreePhaseCommitCoordinator
+  SettlementTx "1" *-- "3" SettlementTxParticipant
+  ApprovalDecision "1" --> "0..*" SettlementTx
