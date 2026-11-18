@@ -14,5 +14,24 @@
     </parent>
 
     <artifactId>common</artifactId>
+    <description>Shared error shape, exception handler base and JSON logging config.</description>
+
+    <properties>
+        <!-- A library, not an image: `mvn -pl services/x -am jib:build` must skip it. -->
+        <jib.skip>true</jib.skip>
+    </properties>
+
+    <dependencies>
+        <!-- Provided by every service that uses this library. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+        </dependency>
+    </dependencies>
 
 </project>

@@ -1,9 +1,34 @@
-import { API_BASE_URL, USE_MOCKS, REQUEST_TIMEOUT_MS, ENDPOINTS } from '../config/api.js';
+import { API_BASE_URL, REQUEST_TIMEOUT_MS, ENDPOINTS, isMocked } from '../config/api.js';
 import { getToken, clearSession } from '../auth/session.js';
 
 // Mocks are loaded on demand so they are split out of the bundle and never run when mocks are off.
 let mocksPromise = null;
 const loadMocks = () => (mocksPromise ||= import('./mocks/index.js'));
+
+/** Role claim of a real JWT, or null. Only read to pick a mock user; never trusted for security. */
+function jwtRole(token) {
+  try {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(payload)).role ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * With partial mocking the user signs in against the real login service, but the mock backend
+ * only knows its own `mock-token-<id>` tokens. Map a real token to the first mock user with the
+ * same role so mocked pages show that user's demo data.
+ */
+async function tokenForMocks(token) {
+  if (!token || token.startsWith('mock-token-')) return token;
+  const role = jwtRole(token);
+  if (!role) return token;
+  await loadMocks();
+  const { state } = await import('./mocks/engine.js');
+  const user = Object.values(state.users).find((u) => u.role === role);
+  return user ? `mock-token-${user.id}` : token;
+}
 
 export class ApiError extends Error {
   constructor(status, message, details) {
@@ -43,10 +68,10 @@ function readableMessage(status, body) {
 async function request(method, path, body, { params } = {}) {
   const token = getToken();
 
-  if (USE_MOCKS) {
+  if (isMocked(path)) {
     try {
       const { handleMock } = await loadMocks();
-      return await handleMock({ method, path, body, params, token });
+      return await handleMock({ method, path, body, params, token: await tokenForMocks(token) });
     } catch (err) {
       if (err.status === 401 && path !== ENDPOINTS.auth.login) onUnauthorized();
       throw new ApiError(err.status ?? 500, err.message || readableMessage(err.status ?? 500));
@@ -98,7 +123,8 @@ export const api = {
  * Uses XMLHttpRequest because fetch cannot report upload progress.
  */
 export function uploadToSignedUrl(uploadUrl, file, onProgress) {
-  if (USE_MOCKS) return loadMocks().then((m) => m.mockUpload(uploadUrl, file, onProgress));
+  // Upload URLs from the mock backend use the mock:// scheme; real ones are pre-signed S3 URLs.
+  if (uploadUrl.startsWith('mock://')) return loadMocks().then((m) => m.mockUpload(uploadUrl, file, onProgress));
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', uploadUrl);

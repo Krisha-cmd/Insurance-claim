@@ -19,9 +19,10 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>proto</module>
         <module>common</module>
         <module>services/login</module>
+        <!-- Enabled one by one as each service is built:
+        <module>proto</module>
         <module>services/claim-intake</module>
         <module>services/policy</module>
         <module>services/eligibility</module>
@@ -30,17 +31,46 @@
         <module>services/payment</module>
         <module>functions/document-verification</module>
         <module>analytics/audit-flink</module>
+        -->
     </modules>
 
     <properties>
         <java.version>21</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
         <grpc.version>1.68.1</grpc.version>
         <aws-sdk.version>2.29.21</aws-sdk.version>
         <flink.version>1.20.0</flink.version>
+        <logstash-logback.version>7.4</logstash-logback.version>
+        <nimbus-jose-jwt.version>9.37.3</nimbus-jose-jwt.version>
+
+        <!-- Container image settings (Jib). Override on the command line:
+             -Dimage=<registry>/<repo>   -Dtag=<tag>
+             Without -Dtag the image is tagged with the short Git commit id. -->
+        <image>claims/${project.artifactId}</image>
+        <tag>${git.commit.id.abbrev}</tag>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>com.claims</groupId>
+                <artifactId>common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>net.logstash.logback</groupId>
+                <artifactId>logstash-logback-encoder</artifactId>
+                <version>${logstash-logback.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>nimbus-jose-jwt</artifactId>
+                <version>${nimbus-jose-jwt.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-bom</artifactId>
@@ -62,10 +92,52 @@
     <build>
         <pluginManagement>
             <plugins>
+                <!-- Exposes git.commit.id.abbrev, used as the default image tag.
+                     Version and the `revision` execution come from spring-boot-starter-parent. -->
+                <plugin>
+                    <groupId>io.github.git-commit-id</groupId>
+                    <artifactId>git-commit-id-maven-plugin</artifactId>
+                    <configuration>
+                        <failOnNoGitDirectory>false</failOnNoGitDirectory>
+                        <offline>true</offline>
+                        <abbrevLength>7</abbrevLength>
+                        <includeOnlyProperties>
+                            <includeOnlyProperty>^git.commit.id.abbrev$</includeOnlyProperty>
+                        </includeOnlyProperties>
+                    </configuration>
+                </plugin>
+
                 <plugin>
                     <groupId>com.google.cloud.tools</groupId>
                     <artifactId>jib-maven-plugin</artifactId>
                     <version>3.4.4</version>
+                    <configuration>
+                        <from>
+                            <image>eclipse-temurin:21-jre</image>
+                            <platforms>
+                                <platform>
+                                    <architecture>amd64</architecture>
+                                    <os>linux</os>
+                                </platform>
+                            </platforms>
+                        </from>
+                        <to>
+                            <image>${image}</image>
+                            <tags>
+                                <tag>latest</tag>
+                                <tag>${tag}</tag>
+                            </tags>
+                        </to>
+                        <container>
+                            <ports>
+                                <port>8080</port>
+                            </ports>
+                            <user>1000:1000</user>
+                            <jvmFlags>
+                                <jvmFlag>-XX:MaxRAMPercentage=75</jvmFlag>
+                            </jvmFlags>
+                        </container>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>

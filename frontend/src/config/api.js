@@ -61,3 +61,36 @@ export const ENDPOINTS = {
                                                                     // GET  -> current state of each toggle
   },
 };
+
+// ---------------------------------------------------------------------------
+// Partial mocking: which ENDPOINTS groups the mock backend answers.
+//   VITE_MOCK_GROUPS (or window.__APP_CONFIG__.MOCK_GROUPS) = 'all' (default)
+//   or a comma list of group names, e.g. 'policy,claims,eligibility,assessment,approval,audit,analytics,ops'
+//   to send only `auth` to the real API. Has no effect when USE_MOCKS is false.
+// ---------------------------------------------------------------------------
+const rawMockGroups = String(runtime.MOCK_GROUPS ?? import.meta.env.VITE_MOCK_GROUPS ?? 'all').trim();
+
+export const MOCK_GROUPS = rawMockGroups === '' || rawMockGroups === 'all'
+  ? Object.keys(ENDPOINTS)
+  : rawMockGroups.split(',').map((g) => g.trim()).filter((g) => g in ENDPOINTS);
+
+// Each endpoint path (or path template) as a regex, tagged with its group.
+const ENDPOINT_PATTERNS = Object.entries(ENDPOINTS).flatMap(([group, entries]) =>
+  Object.values(entries).map((ep) => {
+    const template = typeof ep === 'function' ? ep('\u0000') : ep;
+    const source = template.split('\u0000').map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[^/]+');
+    return { group, pattern: new RegExp(`^${source}$`) };
+  }));
+
+/** The ENDPOINTS group a request path belongs to (e.g. '/api/claims/C-1/status' -> 'claims'), or null. */
+export function endpointGroup(path) {
+  const clean = path.split('?')[0];
+  return ENDPOINT_PATTERNS.find((p) => p.pattern.test(clean))?.group ?? null;
+}
+
+/** Whether this request path is answered by the mock backend. */
+export function isMocked(path) {
+  if (!USE_MOCKS) return false;
+  const group = endpointGroup(path);
+  return group === null ? MOCK_GROUPS.length === Object.keys(ENDPOINTS).length : MOCK_GROUPS.includes(group);
+}
