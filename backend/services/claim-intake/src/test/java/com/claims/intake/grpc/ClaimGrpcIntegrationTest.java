@@ -8,6 +8,8 @@ import com.claims.proto.claim.v1.Actor;
 import com.claims.proto.claim.v1.ClaimServiceGrpc;
 import com.claims.proto.claim.v1.GetClaimRequest;
 import com.claims.proto.claim.v1.RecordAssessmentRequest;
+import com.claims.proto.claim.v1.RecordEligibilityRequest;
+import com.claims.proto.claim.v1.RuleResult;
 import com.claims.proto.claim.v1.UpdateStatusReply;
 import com.claims.proto.claim.v1.UpdateStatusRequest;
 import com.claims.proto.settlement.v1.CanCommitRequest;
@@ -105,6 +107,30 @@ class ClaimGrpcIntegrationTest extends IntakeTestBase {
         assertThat(details.getClaimedAmount()).isEqualTo("5000.00");
         assertThat(details.getStatus()).isEqualTo(com.claims.proto.claim.v1.ClaimStatus.UNDER_REVIEW);
         assertThat(details.getSubmittedBy()).isEqualTo(c.getSubmittedBy().toString());
+    }
+
+    @Test
+    void anEligibilityOverrideWithItsReasonComesBackFromGetClaim() {
+        Claim c = claimIn(ClaimStatus.UNDER_REVIEW, "5000");
+        var stub = ClaimServiceGrpc.newBlockingStub(channel());
+        var get = GetClaimRequest.newBuilder().setClaimId(c.getId().toString()).build();
+        assertThat(stub.getClaim(get).hasLatestEligibility()).as("nothing recorded yet").isFalse();
+
+        stub.recordEligibility(RecordEligibilityRequest.newBuilder().setClaimId(c.getId().toString())
+                .setEligible(true).setOverridden(true)
+                .setOverrideReason("Documents reviewed manually").setOverrideComment("Verified the admission by phone")
+                .addRules(RuleResult.newBuilder().setRule("POLICY_ACTIVE").setLabel("Policy is active").setPassed(false)
+                        .setDetail("Policy POL-2026-00018 is LAPSED"))
+                .setActor(Actor.newBuilder().setId(ADJUSTER_ID.toString()).setRole("ADJUSTER").setName("Rohan Mehta"))
+                .build());
+
+        var latest = stub.getClaim(get).getLatestEligibility();
+        assertThat(latest.getEligible()).isTrue();
+        assertThat(latest.getOverridden()).isTrue();
+        assertThat(latest.getOverrideReason()).isEqualTo("Documents reviewed manually");
+        assertThat(latest.getOverrideComment()).isEqualTo("Verified the admission by phone");
+        assertThat(latest.getCheckedBy()).isEqualTo("ADJUSTER:Rohan Mehta");
+        assertThat(latest.getCheckedAt()).isNotBlank();
     }
 
     @Test

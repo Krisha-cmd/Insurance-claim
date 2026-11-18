@@ -1,0 +1,80 @@
+# Stateless: no database. On EKS: `platform-endpoints` ConfigMap (KAFKA_BOOTSTRAP) and the
+# `eligibility-config` ConfigMap (GRPC_POLICY_TARGET, GRPC_CLAIM_TARGET, JWT_JWKS_URI).
+
+spring:
+  application:
+    name: eligibility
+  profiles:
+    default: local
+
+  jackson:
+    default-property-inclusion: always
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWT_JWKS_URI:http://localhost:8080/.well-known/jwks.json}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        max.block.ms: 5000
+        delivery.timeout.ms: 15000
+        request.timeout.ms: 5000
+        linger.ms: 5
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  error:
+    whitelabel:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+claims:
+  jwt:
+    issuer: claims-login
+
+  events:
+    topic: claim-events
+    kafka-bootstrap: ${KAFKA_BOOTSTRAP:}
+
+  grpc:
+    server:
+      port: ${GRPC_PORT:9090}
+      in-process-name: ""
+    # Policy status, members, period, coverage rules and remaining balance for the rules.
+    policy-target: ${GRPC_POLICY_TARGET:dns:///policy:9090}
+    # The claim's facts and latest eligibility (GetClaim), and RecordEligibility for an override.
+    claim-target: ${GRPC_CLAIM_TARGET:dns:///claim-intake:9090}
+
+  eligibility:
+    # Deadline of each call to Policy and Claim Intake.
+    call-timeout: 3s
+
+---
+spring:
+  config:
+    activate:
+      on-profile: aws
+
+server:
+  forward-headers-strategy: native

@@ -47,9 +47,7 @@ spec:
                 name: platform-endpoints
             - configMapRef:
                 name: eligibility-config
-            - secretRef:
-                name: eligibility-db
-                optional: true  # TODO: the platform stack has no eligibility database yet (db_services)
+            # No secretRef: Eligibility is stateless (no database); results are stored by Claim Intake.
           resources:
             requests: { cpu: 200m, memory: 384Mi }
             limits: { cpu: "1", memory: 768Mi }

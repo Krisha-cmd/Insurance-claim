@@ -1,4 +1,5 @@
-%% Source: README.md, "Claim Database". Corrected from V1__init.sql: settlement_participation.claim_id is nullable (abort tombstone).
+%% Source: README.md, "Claim Database". Corrected from V1__init.sql: settlement_participation.claim_id is nullable (abort tombstone);
+%% eligibility_check gains checked_by (V1) and override_reason (V2).
 erDiagram
     CLAIM ||--o{ CLAIM_DOCUMENT : "has"
     CLAIM ||--|{ CLAIM_STATUS_HISTORY : "records"
@@ -47,6 +48,8 @@ erDiagram
         jsonb rule_results
         boolean overridden
         varchar override_comment
+        varchar override_reason "V2"
+        varchar checked_by "ROLE:Name"
         timestamp checked_at
     }
     SETTLEMENT_PARTICIPATION {

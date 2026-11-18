@@ -83,6 +83,17 @@ message ClaimDetails {
   ClaimStatus status = 14;
   string currency = 15;
   string submitted_by = 16;       // login user id of the policyholder who filed it (Payment finds the payee by it)
+  EligibilityRecord latest_eligibility = 17;  // set by GetClaim only; absent until eligibility is recorded
+}
+
+// The latest eligibility result Claim Intake recorded: the automatic check or an adjuster's override.
+message EligibilityRecord {
+  bool eligible = 1;
+  bool overridden = 2;
+  string override_reason = 3;
+  string override_comment = 4;
+  string checked_by = 5;          // "ROLE:Name", e.g. "ADJUSTER:Rohan Mehta" or "SYSTEM:claim-intake"
+  string checked_at = 6;          // ISO-8601 instant
 }
 
 message RuleResult {
@@ -99,6 +110,7 @@ message RecordEligibilityRequest {
   bool overridden = 4;
   string override_comment = 5;
   Actor actor = 6;
+  string override_reason = 7;     // with overridden = true, e.g. "Documents reviewed manually"
 }
 
 message RecordAssessmentRequest {
