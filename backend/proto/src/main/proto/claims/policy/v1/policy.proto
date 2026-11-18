@@ -1,4 +1,5 @@
-// Implemented by the Policy service. Called by Claim Intake when a claim is filed.
+// Implemented by the Policy service (port 9090).
+// Callers: Claim Intake (ValidateMember), Eligibility and Assessment (GetPolicy, GetCoverage, GetBalance).
 syntax = "proto3";
 
 package claims.policy.v1;
@@ -9,9 +10,18 @@ option java_outer_classname = "PolicyProto";
 
 service PolicyService {
   // Is `member_id` insured under `policy_no`, and does the policy belong to `policyholder_id`?
-  // Always answers OK with valid=false and a reason for a business "no";
-  // NOT_FOUND only when the policy number does not exist.
+  // Answers OK with valid=false and a reason for a business "no" (it does NOT refuse a lapsed policy:
+  // that is Eligibility's call); NOT_FOUND only when the policy number does not exist.
   rpc ValidateMember(ValidateMemberRequest) returns (ValidateMemberReply);
+
+  // The policy with its members and plan. NOT_FOUND for an unknown policy number.
+  rpc GetPolicy(PolicyNoRequest) returns (PolicyDetails);
+
+  // The plan's coverage rules, deductible, co-pay and room-rent limit.
+  rpc GetCoverage(PolicyNoRequest) returns (CoverageDetails);
+
+  // Sum insured, utilised, reserved (by settlements in progress) and remaining.
+  rpc GetBalance(PolicyNoRequest) returns (BalanceDetails);
 }
 
 message ValidateMemberRequest {
@@ -22,9 +32,60 @@ message ValidateMemberRequest {
 
 message ValidateMemberReply {
   bool valid = 1;
-  string reason = 2;             // why not, e.g. "Policy lapsed on 2026-03-31"
+  string reason = 2;             // why not, e.g. "The patient is not insured under this policy."
   string policyholder_name = 3;
   string member_name = 4;
   string relation = 5;           // SELF | SPOUSE | CHILD | PARENT
   string policy_status = 6;      // ACTIVE | LAPSED
+}
+
+message PolicyNoRequest {
+  string policy_no = 1;
+}
+
+message Member {
+  string member_id = 1;
+  string full_name = 2;
+  string relation = 3;           // SELF | SPOUSE | CHILD | PARENT
+  string date_of_birth = 4;      // yyyy-MM-dd, empty if unknown
+}
+
+message PolicyDetails {
+  string policy_id = 1;
+  string policy_no = 2;
+  string policyholder_id = 3;
+  string policyholder_name = 4;
+  string plan_name = 5;
+  string status = 6;             // ACTIVE | LAPSED
+  string start_date = 7;         // yyyy-MM-dd
+  string end_date = 8;
+  string sum_insured = 9;        // decimal as text
+  repeated Member members = 10;
+}
+
+message CoverageRule {
+  string treatment_category = 1; // HOSPITALISATION, SURGERY, MATERNITY, DAYCARE, DIAGNOSTICS, EMERGENCY, COSMETIC
+  string treatment_label = 2;    // the claim's treatmentType text, e.g. "Day care procedure"
+  bool covered = 3;
+  string sub_limit = 4;          // decimal as text; empty when not covered
+  int32 waiting_period_days = 5;
+}
+
+message CoverageDetails {
+  string policy_no = 1;
+  string plan_name = 2;
+  string deductible = 3;         // decimal as text
+  string copay_pct = 4;          // e.g. "10.00"
+  string room_rent_limit = 5;    // per day
+  repeated CoverageRule rules = 6;
+  string start_date = 7;
+  string end_date = 8;
+}
+
+message BalanceDetails {
+  string policy_no = 1;
+  string sum_insured = 2;
+  string utilised = 3;
+  string reserved = 4;
+  string remaining = 5;          // sum_insured - utilised - reserved
 }
