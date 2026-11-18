@@ -123,7 +123,7 @@ variable "msk_broker_volume_size" {
 variable "emr_release_label" {
   description = "EMR release."
   type        = string
-  default     = "emr-7.2.0"
+  default     = "emr-7.6.0"
 }
 
 variable "emr_primary_instance_type" {

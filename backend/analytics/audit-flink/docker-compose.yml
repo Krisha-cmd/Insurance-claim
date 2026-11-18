@@ -1,0 +1,13 @@
+# Local dependencies for the Audit Flink job: a single-node Kafka (KRaft) and DynamoDB Local.
+# See README.md for how to create the topics and table and run the job against them.
+services:
+  kafka:
+    image: apache/kafka:3.8.1
+    ports:
+      - "9092:9092"   # advertised as localhost:9092 by the image's default config
+
+  dynamodb:
+    image: amazon/dynamodb-local:2.5.2
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    ports:
+      - "8000:8000"

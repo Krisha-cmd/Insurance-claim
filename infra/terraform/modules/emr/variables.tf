@@ -16,7 +16,7 @@ variable "subnet_id" {
 variable "release_label" {
   description = "EMR release."
   type        = string
-  default     = "emr-7.2.0"
+  default     = "emr-7.6.0"
 }
 
 variable "applications" {

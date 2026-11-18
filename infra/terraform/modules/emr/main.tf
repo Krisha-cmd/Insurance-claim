@@ -131,6 +131,13 @@ locals {
         Resource = [var.artifacts_bucket_arn, "${var.artifacts_bucket_arn}/*"]
       },
       {
+        # The Audit Flink job checkpoints to s3://<artifacts>/flink/checkpoints/ and prunes old checkpoints.
+        Sid      = "WriteFlinkCheckpoints"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:AbortMultipartUpload"]
+        Resource = ["${var.artifacts_bucket_arn}/flink/checkpoints/*"]
+      },
+      {
         Sid      = "WriteLogs"
         Effect   = "Allow"
         Action   = ["s3:PutObject", "s3:GetObject", "s3:ListBucket", "s3:AbortMultipartUpload"]
