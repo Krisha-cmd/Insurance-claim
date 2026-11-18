@@ -2,7 +2,7 @@ Task division: Medical insurance claims system (github.com/Krisha-cmd/Insurance-
 Sources: GitHub issues #1-#9, pull requests #10-#16, and git history (git log --all).
 Issues are listed under their assignee. Commits are counted per git author, merge commits separately.
 
-ID: TODO  Name: Krisha Aggarwal  (GitHub: Krisha-cmd)
+ID: 2025H1120153P  Name: Krisha Aggarwal  (GitHub: Krisha-cmd)
 Tasks:
   - #3 Document Verification Lambda
   - #6 Payment service and gateway simulator
@@ -18,7 +18,7 @@ Contributions:
   - PR #15 Payment service and gateway simulator (commit fb7c19b, see TODO 2)
   - PR #16 Ops Dashboard backend (commit 020a742, see TODO 2)
 
-ID: TODO  Name: Tathya Sethi  (GitHub: Tathya-25)
+ID: 2025H1120172P  Name: Tathya Sethi  (GitHub: Tathya-25)
 Tasks:
   - #1 Policy service
   - #2 Claim Intake Service
@@ -33,7 +33,7 @@ Contributions:
   - PR #12 Claim Intake service
   - PR #13 Policy service
 
-ID: TODO  Name: Praptipriya Phukon  (GitHub: praptipriyaph)
+ID: 2025H1120237  Name: Praptipriya Phukon  (GitHub: praptipriyaph)
 Tasks:
   - #4 Eligibility service
   - #5 Assessment service
