@@ -2,8 +2,8 @@
 
 Java 21 · Spring Boot 3.3 · Maven multi-module. One module per service. Active in the parent
 [`pom.xml`](pom.xml): `proto`, `common`, `participant`, `services/login`, `services/approval` and
-`services/claim-intake`, `services/policy`, `functions/document-verification`, `services/payment` and
-`services/gateway-simulator`; the others are commented out and get switched on one at a time as they are built.
+`services/claim-intake`, `services/policy`, `functions/document-verification`, `services/payment`,
+`services/gateway-simulator` and `services/ops-dashboard`; the others are commented out and get switched on one at a time as they are built.
 
 ```
 backend/
@@ -19,7 +19,8 @@ backend/
 ├── services/policy/        policies, members, coverage; 3PC participant reserving the sum insured (see its README)
 ├── functions/document-verification/  AWS Lambda: S3 upload → checks → VERIFIED/REJECTED result (see its README)
 ├── services/payment/       3PC participant paying through the gateway: authorize / capture / void (see its README)
-└── services/gateway-simulator/  in-memory fake payment gateway with chaos modes (see its README)
+├── services/gateway-simulator/  in-memory fake payment gateway with chaos modes (see its README)
+└── services/ops-dashboard/ read API over DynamoDB claims-analytics + chaos proxy (see its README)
 ```
 
 ## Prerequisites

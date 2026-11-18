@@ -58,9 +58,11 @@ public class ClaimEventDeserializer extends AbstractDeserializationSchema<ClaimE
         if (actor != null && actor.isObject()) {
             e.setActorId(text(actor, "id"));
             e.setActorRole(text(actor, "role"));
+            e.setActorName(text(actor, "name"));
         } else {
             e.setActorId(text(n, "actorId"));
             e.setActorRole(text(n, "actorRole"));
+            e.setActorName(text(n, "actorName"));
         }
         e.setFromStatus(text(n, "fromStatus"));
         e.setToStatus(text(n, "toStatus"));
