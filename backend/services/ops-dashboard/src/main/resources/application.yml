@@ -1,0 +1,72 @@
+# On EKS: `platform-endpoints` ConfigMap (ANALYTICS_TABLE, AWS_REGION, KAFKA_BOOTSTRAP), the ops-dashboard IRSA
+# service account (DynamoDB Query/GetItem on the table and its indexes), and the Deployment (JWT_JWKS_URI, …).
+
+spring:
+  application:
+    name: ops-dashboard
+
+  jackson:
+    default-property-inclusion: always
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWT_JWKS_URI:http://localhost:8080/.well-known/jwks.json}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        max.block.ms: 5000
+        delivery.timeout.ms: 15000
+        request.timeout.ms: 5000
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  error:
+    whitelabel:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+claims:
+  jwt:
+    issuer: claims-login
+
+  events:
+    topic: claim-events
+    kafka-bootstrap: ${KAFKA_BOOTSTRAP:}
+
+  aws:
+    region: ${AWS_REGION:ap-south-1}
+    endpoint: ${AWS_ENDPOINT_URL:}       # LocalStack only
+
+  grpc:
+    claim-target: ${GRPC_CLAIM_TARGET:dns:///claim-intake:9090}
+
+  ops:
+    table: ${ANALYTICS_TABLE:claims-dev-analytics}
+    gsi1: GSI1
+    lookback-minutes: 30
+    max-audit-results: 1000
+    # Cluster-internal chaos endpoints (not routed by the ingress).
+    approval-url: ${APPROVAL_URL:http://approval}
+    payment-url: ${PAYMENT_URL:http://payment}
+    chaos-timeout: 3s

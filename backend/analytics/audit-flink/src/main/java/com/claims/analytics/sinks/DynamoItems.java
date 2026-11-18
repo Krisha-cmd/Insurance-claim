@@ -29,7 +29,7 @@ import java.util.Map;
  * <pre>
  * Audit Event       CLAIM#&lt;claimId&gt;                EVENT#&lt;isoTs&gt;#&lt;eventId&gt;   + GSI1PK=TYPE#&lt;eventType&gt;, GSI1SK=&lt;isoTs&gt;
  * Window Aggregate  METRIC#claims_overview#1m      WINDOW#&lt;windowStart&gt;         + ttl
- * Fraud Flag        FRAUD#&lt;policyNo&gt;               WINDOW#&lt;windowEnd&gt;           + ttl
+ * Fraud Flag        FRAUD#&lt;policyNo&gt;               WINDOW#&lt;windowEnd&gt;           + ttl, GSI1PK=TYPE#FraudFlag, GSI1SK=&lt;windowEnd&gt;
  * Settlement View   TX#&lt;txId&gt;                      STATE
  * </pre>
  *
@@ -62,6 +62,7 @@ public final class DynamoItems {
             Map<String, Object> actor = new LinkedHashMap<>();
             actor.put("id", e.getActorId());
             actor.put("role", e.getActorRole());
+            actor.put("name", e.getActorName());
             doc.put("actor", actor);
         } else {
             doc.put("actor", null);
@@ -99,6 +100,9 @@ public final class DynamoItems {
                 "FRAUD#" + f.getPolicyNo(), "WINDOW#" + Timestamps.isoSeconds(f.getWindowEnd()));
         item.putAll(attributes(f.toDocument()));
         item.put("ttl", ttl(f.getWindowEnd()));
+        // GSI1 lets the Ops Dashboard list every policy's flags newest first with one Query.
+        item.put("GSI1PK", s("TYPE#FraudFlag"));
+        item.put("GSI1SK", s(Timestamps.isoSeconds(f.getWindowEnd())));
         return item;
     }
 

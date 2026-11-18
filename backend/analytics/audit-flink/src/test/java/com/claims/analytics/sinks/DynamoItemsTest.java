@@ -30,6 +30,7 @@ class DynamoItemsTest {
         e.setClaimId("c-1042");
         e.setActorId("u-adj-01");
         e.setActorRole("ADJUSTER");
+        e.setActorName("Rohan Mehta");
         e.setFromStatus("ASSESSED");
         e.setToStatus("UNDER_REVIEW");
         e.setChangeJson("{\"field\":\"proposedAmount\",\"before\":82000,\"after\":76500}");
@@ -43,6 +44,7 @@ class DynamoItemsTest {
         assertThat(item.get("GSI1SK").s()).isEqualTo("2026-11-16T14:05:12.331Z");
         assertThat(item.get("type").s()).isEqualTo("AuditEvent");
         assertThat(item.get("actor").m().get("role").s()).isEqualTo("ADJUSTER");
+        assertThat(item.get("actor").m().get("name").s()).isEqualTo("Rohan Mehta");
         assertThat(item.get("change").m().get("after").n()).isEqualTo("76500");
         assertThat(item.get("txId").nul()).isTrue();
         assertThat(item).doesNotContainKey("ttl");
@@ -93,6 +95,8 @@ class DynamoItemsTest {
         assertThat(item.get("claimIds").l()).extracting(AttributeValue::s)
                 .containsExactly("c-1040", "c-1041", "c-1042");
         assertThat(item).containsKey("ttl");
+        assertThat(item.get("GSI1PK").s()).isEqualTo("TYPE#FraudFlag");
+        assertThat(item.get("GSI1SK").s()).isEqualTo("2026-11-16T14:10:00Z");
     }
 
     @Test

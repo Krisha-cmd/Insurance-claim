@@ -21,6 +21,7 @@ public class ClaimEvent {
     private String policyNo;
     private String actorId;
     private String actorRole;
+    private String actorName;
     private String fromStatus;
     private String toStatus;
     private BigDecimal amount;
@@ -58,6 +59,8 @@ public class ClaimEvent {
     public void setActorId(String actorId) { this.actorId = actorId; }
     public String getActorRole() { return actorRole; }
     public void setActorRole(String actorRole) { this.actorRole = actorRole; }
+    public String getActorName() { return actorName; }
+    public void setActorName(String actorName) { this.actorName = actorName; }
     public String getFromStatus() { return fromStatus; }
     public void setFromStatus(String fromStatus) { this.fromStatus = fromStatus; }
     public String getToStatus() { return toStatus; }

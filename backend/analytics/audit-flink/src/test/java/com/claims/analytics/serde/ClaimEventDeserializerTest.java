@@ -23,7 +23,7 @@ class ClaimEventDeserializerTest {
         ClaimEvent e = read("""
                 {"eventId":"e-77f1","eventType":"ASSESSMENT_ADJUSTED","occurredAt":"2026-11-16T14:05:12.331Z",
                  "service":"assessment","claimId":"c-1042","policyNo":"POL-1",
-                 "actor":{"id":"u-adj-01","role":"ADJUSTER"},"fromStatus":"ASSESSED","toStatus":"UNDER_REVIEW",
+                 "actor":{"id":"u-adj-01","role":"ADJUSTER","name":"Rohan Mehta"},"fromStatus":"ASSESSED","toStatus":"UNDER_REVIEW",
                  "amount":76500.50,"change":{"field":"proposedAmount","before":82000,"after":76500},
                  "comment":"capped","txId":null,"unknownField":true}
                 """);
@@ -32,6 +32,7 @@ class ClaimEventDeserializerTest {
         assertThat(e.getOccurredAt()).isEqualTo(Instant.parse("2026-11-16T14:05:12.331Z").toEpochMilli());
         assertThat(e.getActorId()).isEqualTo("u-adj-01");
         assertThat(e.getActorRole()).isEqualTo("ADJUSTER");
+        assertThat(e.getActorName()).isEqualTo("Rohan Mehta");
         assertThat(e.getAmount()).isEqualByComparingTo("76500.50");
         assertThat(e.getChangeJson()).isEqualTo("{\"field\":\"proposedAmount\",\"before\":82000,\"after\":76500}");
         assertThat(e.getTxId()).isNull();

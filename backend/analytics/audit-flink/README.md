@@ -25,7 +25,7 @@ flowchart LR
 |---|---|---|
 | Audit event, one per input event with a `claimId` | `CLAIM#<claimId>` / `EVENT#<isoTs>#<eventId>`, plus `GSI1PK=TYPE#<eventType>`, `GSI1SK=<isoTs>` | no |
 | Claims overview: counts by `toStatus`, approval rate, total and average claimed, settlement commits and aborts | `METRIC#claims_overview#1m` / `WINDOW#<windowStart>`, `ttl` = 7 days | `{"type":"WindowAggregate",...}` |
-| Fraud flag: more than 2 distinct new claims on one policy in a 10-minute window | `FRAUD#<policyNo>` / `WINDOW#<windowEnd>`, `ttl` = 7 days | `{"type":"FraudFlag",...}` |
+| Fraud flag: more than 2 distinct new claims on one policy in a 10-minute window | `FRAUD#<policyNo>` / `WINDOW#<windowEnd>`, `ttl` = 7 days, plus `GSI1PK=TYPE#FraudFlag`, `GSI1SK=<windowEnd>` (so the Ops Dashboard lists every policy's flags with one Query) | `{"type":"FraudFlag",...}` |
 | Settlement view: current state of a 3PC transaction | `TX#<txId>` / `STATE` | no |
 
 Every 1-minute slide re-checks the last 10 minutes, so one burst of claims raises a flag in each window that contains it (up to 10 items `FRAUD#<policy>` / `WINDOW#...`, one per window end).
@@ -44,7 +44,7 @@ One JSON envelope for every event type. Fields that don't apply are left out or 
   "service": "assessment",
   "claimId": "c-1042",
   "policyNo": "POL-2026-00017",
-  "actor": { "id": "u-adj-01", "role": "ADJUSTER" },
+  "actor": { "id": "u-adj-01", "role": "ADJUSTER", "name": "Rohan Mehta" },
   "fromStatus": "ASSESSED",
   "toStatus": "UNDER_REVIEW",
   "amount": 76500,

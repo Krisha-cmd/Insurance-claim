@@ -1,0 +1,128 @@
+{
+  "summary": {
+    "approvalRate": "number",
+    "avgClaimedAmount": "number",
+    "claimsLastMinute": "number",
+    "generatedAt": "string",
+    "lookbackMinutes": "number",
+    "settlementAborts": "number",
+    "settlementCommits": "number",
+    "windowEnd": "string",
+    "windowStart": "string"
+  },
+  "seriesClaimsByStatus": {
+    "metric": "string",
+    "points": [
+      {
+        "approved": "number",
+        "rejected": "number",
+        "settled": "number",
+        "submitted": "number",
+        "windowStart": "string"
+      }
+    ],
+    "window": "string"
+  },
+  "seriesAborts": {
+    "metric": "string",
+    "points": [
+      {
+        "aborts": "number",
+        "commits": "number",
+        "windowStart": "string"
+      }
+    ],
+    "window": "string"
+  },
+  "fraudFlags": [
+    {
+      "claimCount": "number",
+      "claimIds": [
+        "string"
+      ],
+      "firstClaimAt": "string",
+      "holderName": "string",
+      "lastClaimAt": "string",
+      "policyNumber": "string"
+    }
+  ],
+  "auditTrail": [
+    {
+      "actor": {
+        "id": "string",
+        "name": "string",
+        "role": "string"
+      },
+      "after": {
+        "claimedAmount": "number",
+        "hospital": "string",
+        "status": "string"
+      },
+      "at": "string",
+      "before": "null",
+      "claimId": "string",
+      "comment": "null",
+      "id": "string",
+      "type": "string"
+    }
+  ],
+  "auditSearch": {
+    "items": [
+      {
+        "actor": {
+          "id": "string",
+          "name": "string",
+          "role": "string"
+        },
+        "after": {
+          "amount": "number",
+          "attempt": "number",
+          "transactionId": "string"
+        },
+        "at": "string",
+        "before": {
+          "status": "string"
+        },
+        "claimId": "string",
+        "comment": "string",
+        "id": "string",
+        "type": "string"
+      }
+    ],
+    "page": "number",
+    "size": "number",
+    "total": "number"
+  },
+  "chaos": {
+    "COORDINATOR": {
+      "affectedClaimId": "null",
+      "changedAt": "null",
+      "changedBy": "null",
+      "mode": "string"
+    },
+    "PAYMENT": {
+      "affectedClaimId": "null",
+      "changedAt": "null",
+      "changedBy": "null",
+      "mode": "string"
+    }
+  },
+  "chaosAfterSet": {
+    "COORDINATOR": {
+      "affectedClaimId": "null",
+      "changedAt": "null",
+      "changedBy": "null",
+      "mode": "string"
+    },
+    "PAYMENT": {
+      "affectedClaimId": "null",
+      "changedAt": "string",
+      "changedBy": {
+        "id": "string",
+        "name": "string",
+        "role": "string"
+      },
+      "mode": "string"
+    }
+  }
+}
