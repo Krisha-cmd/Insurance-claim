@@ -65,7 +65,7 @@ document loop, the parallel eligibility and assessment checks, and the parallel 
 | 2 | Claim Intake | `backend/services/claim-intake` | EKS |
 | 3 | Document Verification | `backend/functions/document-verification` | AWS Lambda |
 | 4 | Eligibility | designed in issue #4; `backend/services/eligibility` holds only a `pom.xml` | EKS (manifests ready, not deployed) |
-| 5 | Assessment | designed in issue #5; `backend/services/assessment` holds only a `pom.xml` | EKS (manifests ready, not deployed) |
+| 5 | Assessment | `backend/services/assessment` | EKS (one of the two CPU-based HPAs) |
 | 6 | Approval (3PC coordinator) | `backend/services/approval` | EKS, exactly one replica |
 | 7 | Payment | `backend/services/payment`, plus `gateway-simulator` | EKS |
 | 8 | Audit | `backend/analytics/audit-flink` (Flink on EMR) and `backend/services/ops-dashboard` (read API) | EMR + EKS |
@@ -209,12 +209,16 @@ period, balance available) runs over data from Policy and Claim Intake (Figure 1
 stateless; results are stored by Claim Intake (`eligibility_check`). Manifests exist in `k8s/base/eligibility`
 but are not in the overlays, and no `eligibility` database is created (`db_services`).
 
-### 4.6 Assessment (issue #5): designed, not built
+### 4.6 Assessment (issue #5)
 
-Designed REST: `GET /api/assessments/{claimId}` and an adjuster adjustment. Designed gRPC: `Assess` and
-`GetFinalAmount` (Approval reads the amount to settle from here). `AssessmentCalculator` applies deductible,
-co-pay, sub-limits and the remaining balance (Figure 15). Terraform already creates the `assessment` database.
-Manifests exist in `k8s/base/assessment` but are not deployed.
+| | |
+| --- | --- |
+| **REST** | `GET /api/assessments/{claimId}` (owner or adjuster): the breakdown, the calculated and final amounts, and the adjustments. `PUT /api/assessments/{claimId}/adjust` (adjuster) `{amount, comment}`: `0 < amount ≤ claimed`, comment ≥ 10 characters, only before a decision |
+| **gRPC serves** | `Assess(ClaimDetails)` (Claim Intake): idempotent, one row per claim; recalculates unless adjusted. `GetFinalAmount` (Approval): the adjusted amount, else the proposed one; NOT_FOUND until assessed |
+| **gRPC calls** | `PolicyService.GetCoverage` / `GetBalance`; `ClaimService.GetClaim` (status check) and `RecordAssessment` (after an adjustment, in the same transaction) |
+| **Calculation** | `AssessmentCalculator`, a pure function: `capped = min(claimed, subLimit)` → `max(capped − deductible, 0)` → minus co-pay → `min(…, remaining sum insured)`, 2 decimals HALF_UP. Timed by `claims.assessment.calculate` (CPU only), the HPA's signal |
+| **Data** | Assessment DB: `assessment` (every step of the calculation, `final_amount`, `adjusted`), `assessment_adjustment` |
+| **Events** | `ASSESSMENT_ADJUSTED {before, after}`; `ASSESSMENT_COMPLETED` is emitted by Claim Intake |
 
 ### 4.7 Approval: 3PC coordinator (issue #7)
 
@@ -331,7 +335,7 @@ validator that aggregates four `ValidationRule` realizations, and a result publi
 
 ![Figure 15. Assessment classes](diagrams/class-assessment.png)
 
-*Figure 15. Class diagram: Assessment (issue #5, not built).* Shows the calculator producing a `Calculation`,
+*Figure 15. Class diagram: Assessment (issue #5).* Shows the calculator producing a `Calculation`,
 and `Assessment` composing its adjustment history.
 
 ![Figure 16. Approval classes](diagrams/class-approval.png)
@@ -456,7 +460,7 @@ demand; the infra README budgets roughly $0.90–1.00/hour with everything on, a
 **EKS for the services.** Seven long-running Spring Boot services need the same things: rolling updates, health
 probes, autoscaling, service discovery for gRPC (`dns:///<svc>:9090`), and network isolation. Kubernetes gives
 all of them declaratively:
-- HPAs, which the Assessment design (issue #5) relies on for a CPU-bound calculation.
+- HPAs, which Assessment relies on: its calculation is CPU-bound and timed (`claims.assessment.calculate`).
 - ClusterIP DNS, so gRPC targets are plain service names.
 - NetworkPolicies, enforced by the VPC CNI.
 - One ALB shared by all Ingresses.
@@ -511,7 +515,7 @@ stay separate logical databases with separate users and Secrets.
   databases are the source of truth.
 - **The Payment authorization orphan** (Section 4.8) and **tokens that are not revoked at logout** (Section 4.1)
   are documented limits.
-- **Eligibility and Assessment are designed but not built.** Claim Intake already tolerates their absence: a
+- **Eligibility is designed but not built.** Claim Intake already tolerates its absence: a
   failed check skips its step.
 
 ---

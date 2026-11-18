@@ -13,6 +13,6 @@ resources:
   - gateway-simulator
   - ops-dashboard
   - frontend
-  # Not implemented yet (issues #4, #5). Their manifests are complete; add them here once images exist:
+  - assessment
+  # Not implemented yet (issue #4). Its manifests are complete; add it here once the image exists:
   # - eligibility
-  # - assessment
