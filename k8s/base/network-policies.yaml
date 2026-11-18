@@ -1,0 +1,12 @@
+# Deny all ingress to every pod in the namespace; each service's allow-<name> policy opens what it needs.
+# Egress stays open (RDS, MSK, S3, SQS, DynamoDB, the Kubernetes DNS).
+# Enforced by the VPC CNI network policy agent (enableNetworkPolicy in infra/terraform/modules/eks).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  labels:
+    app.kubernetes.io/part-of: claims
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]

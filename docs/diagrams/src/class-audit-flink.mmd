@@ -1,0 +1,81 @@
+%% Source: GitHub issue #8 body (class diagram). Notation corrected to UML: attributes as name : Type,
+%% parameters as name: Type; see docs/design-document.md, "Diagram sources and corrections".
+classDiagram
+  direction LR
+  class AuditAnalyticsJob {
+    +main(args: String[])
+    -buildPipeline(streamExecutionEnvironment: StreamExecutionEnvironment, jobConfig: JobConfig)
+  }
+  class JobConfig {
+    <<record>>
+    bootstrap : String
+    eventsTopic : String
+    resultsTopic : String
+    table : String
+    region : String
+    checkpointDir : String
+  }
+  class ClaimEvent {
+    eventId : String
+    eventType : String
+    occurredAt : long
+    claimId : String
+    policyNo : String
+    txId : String
+    phase : String
+    toStatus : String
+    amount : BigDecimal
+  }
+  class ClaimEventDeserializer
+  class ClaimsOverviewAggregate {
+    +createAccumulator() OverviewAcc
+    +add(claimEvent: ClaimEvent, overviewAcc: OverviewAcc) OverviewAcc
+    +getResult(overviewAcc: OverviewAcc) ClaimsOverview
+    +merge(overviewAcc: OverviewAcc, overviewAcc2: OverviewAcc) OverviewAcc
+  }
+  class ClaimsOverviewWindowFunction
+  class FraudCountAggregate
+  class FraudFlagWindowFunction
+  class SettlementViewFunction {
+    -state : ValueState~SettlementView~
+    +processElement(claimEvent: ClaimEvent, context: Context, collector: Collector)
+  }
+  class ClaimsOverview {
+    windowStart : long
+    windowEnd : long
+    countsByStatus : Map~String,Long~
+    approvalRate : double
+    totalClaimed : BigDecimal
+    settlementCommits : long
+    settlementAborts : long
+  }
+  class FraudFlag {
+    policyNo : String
+    windowEnd : long
+    claimCount : int
+    claimIds : List~String~
+  }
+  class SettlementView {
+    txId : String
+    claimId : String
+    phase : String
+    outcome : String
+    participants : Map~String,Participant~
+  }
+  class DynamoItems {
+    +auditItem(claimEvent: ClaimEvent)
+    +overviewItem(claimsOverview: ClaimsOverview)
+    +fraudItem(fraudFlag: FraudFlag)
+    +settlementItem(settlementView: SettlementView)
+  }
+  AuditAnalyticsJob --> JobConfig
+  AuditAnalyticsJob --> ClaimEventDeserializer
+  AuditAnalyticsJob --> ClaimsOverviewAggregate
+  AuditAnalyticsJob --> ClaimsOverviewWindowFunction
+  AuditAnalyticsJob --> FraudCountAggregate
+  AuditAnalyticsJob --> FraudFlagWindowFunction
+  AuditAnalyticsJob --> SettlementViewFunction
+  AuditAnalyticsJob --> DynamoItems
+  ClaimsOverviewAggregate ..> ClaimsOverview
+  FraudFlagWindowFunction ..> FraudFlag
+  SettlementViewFunction ..> SettlementView

@@ -1,0 +1,25 @@
+%% Source: backend/services/claim-intake/README.md "Status rules" (ASCII). Drawn as a UML state machine.
+stateDiagram-v2
+    direction TB
+    [*] --> SUBMITTED : POST /api/claims
+    SUBMITTED --> DOCS_PENDING : member validated
+    DOCS_PENDING --> DOCS_VERIFIED : all required documents VERIFIED
+    DOCS_VERIFIED --> ELIGIBILITY_CHECKED : Check ok
+    DOCS_VERIFIED --> ASSESSED : [eligibility failed]
+    DOCS_VERIFIED --> UNDER_REVIEW : [both checks failed]
+    ELIGIBILITY_CHECKED --> ASSESSED : Assess ok
+    ELIGIBILITY_CHECKED --> UNDER_REVIEW : [assessment failed]
+    ASSESSED --> UNDER_REVIEW
+    ELIGIBILITY_CHECKED --> APPROVED : UpdateStatus
+    ASSESSED --> APPROVED : UpdateStatus
+    UNDER_REVIEW --> APPROVED : UpdateStatus
+    ELIGIBILITY_CHECKED --> REJECTED : UpdateStatus
+    ASSESSED --> REJECTED : UpdateStatus
+    UNDER_REVIEW --> REJECTED : UpdateStatus
+    APPROVED --> SETTLING : CanCommit / vote YES
+    SETTLEMENT_FAILED --> SETTLING : retry, CanCommit / vote YES
+    APPROVED --> SETTLEMENT_FAILED : Abort
+    SETTLING --> SETTLED : DoCommit
+    SETTLING --> SETTLEMENT_FAILED : Abort
+    REJECTED --> [*]
+    SETTLED --> [*]

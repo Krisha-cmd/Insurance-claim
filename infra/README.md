@@ -18,7 +18,7 @@ The code is split into three **stacks**. A stack is a folder you run `terraform`
 |---|---|---|
 | VPC across 2 AZs: 2 public and 2 private subnets, **1 NAT gateway**, S3 and DynamoDB gateway endpoints | Private network. The gateway endpoints are free and keep S3/DynamoDB traffic off the NAT | ~$0.06 + data |
 | **EKS** `claims-dev` (Kubernetes 1.33) with 2 × `t3.medium` nodes, plus the EBS CSI driver and a default `gp3` StorageClass | Runs the six services, ArgoCD and monitoring | $0.10 + ~$0.09 |
-| **ECR**: 9 repositories (`claims-dev/<service>`) | Container images | storage only |
+| **ECR**: 10 repositories (`claims-dev/<service>`, frontend included) | Container images | storage only |
 | **RDS PostgreSQL 16**, `db.t4g.micro`, 20 GB gp3, single-AZ | One database per service. The master password lives in Secrets Manager | ~$0.02 |
 | **MSK** Kafka 3.6.0, 2 × `kafka.t3.small` | Event bus between services (`claim-events`, `claim-analytics`, `doc-verified`) | ~$0.09 |
 | **EMR** 7.6.0 (Flink 1.20 + Hadoop), 1 primary + 1 core `m5.xlarge`. Stops itself after 2 h idle | Runs the Audit Flink job (Kafka → results topic + DynamoDB) | ~$0.53 |
@@ -127,7 +127,7 @@ Tell ArgoCD which Git repository to watch. Create `infra/terraform/platform/terr
 ```hcl
 gitops_repo_url = "https://github.com/Krisha-cmd/Insurance-claim.git"
 # gitops_revision = "main"       # branch to track (default)
-# gitops_path     = "k8s/apps"   # folder with the Application manifests (default)
+# gitops_path     = "gitops/apps"   # folder with the per-environment Applications (default)
 ```
 
 For a **private** repository, also add `gitops_repo_private = true`, then pass the token through the environment so it never lands in a file:
@@ -170,7 +170,7 @@ kubectl -n argocd port-forward svc/argocd-server 8080:80
 # in a second terminal: the admin password
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo
 ```
-Open <http://localhost:8080> and sign in as `admin` with that password. You should see the **`root`** application. Until `k8s/apps` exists in the repository, it shows a *ComparisonError* ("path does not exist"). That's expected: ArgoCD is working, and there is just nothing to deploy yet.
+Open <http://localhost:8080> and sign in as `admin` with that password. You should see the **`claims-root`** application in the **`claims`** project, and under it **`claims-<env>`**, which syncs `k8s/overlays/<env>`. Both come from [`gitops/`](../gitops/README.md); Terraform reads those files, so they are defined once.
 
 **Grafana**
 
@@ -191,7 +191,7 @@ Open <http://localhost:3000> and sign in as `admin` with that password.
    aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin <account_id>.dkr.ecr.ap-south-1.amazonaws.com
    ```
 2. Build and push each service as `<account_id>.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/<service>:<tag>`. The backend README has the build commands.
-3. Commit the Kubernetes manifests under `k8s/`. `k8s/apps/` holds one Argo CD `Application` per service. Push to `main`. ArgoCD syncs within about 3 minutes, or immediately if you click **Refresh**.
+3. Set the tags in `k8s/overlays/<env>/kustomization.yaml` (`kustomize edit set image`) and push to `main`. ArgoCD syncs within about 3 minutes, or immediately if you click **Refresh**. Normally the [`deliver`](../.github/workflows/deliver.yml) workflow does steps 1-3; see [gitops/README.md](../gitops/README.md).
 
 What the manifests can rely on (they never need an account ID):
 - `envFrom: secretRef: <service>-db` and `configMapRef: platform-endpoints`
@@ -279,7 +279,7 @@ cd ../infra && terraform destroy -var-file=dev.tfvars
 | Variable | Default | What it changes |
 |---|---|---|
 | `gitops_repo_url` | `""` | The repository ArgoCD watches. When empty, no root app is created |
-| `gitops_revision` / `gitops_path` | `main` / `k8s/apps` | Branch and folder of the app-of-apps |
+| `gitops_revision` / `gitops_path` | `main` / `gitops/apps` | Branch and folder of the app-of-apps (the root app picks `<env>.yaml` there) |
 | `gitops_repo_private` / `gitops_repo_token` | `false` / env var | Credentials for a private repository |
 | `expose_argocd` / `expose_grafana` / `ingress_allowed_cidrs` | `false` / `false` / `0.0.0.0/0` | Public ALBs for the UIs |
 | `db_services` | `login, policy, claims, assessment, approval, payment` | Databases, users and `<name>-db` Secrets |
@@ -307,7 +307,7 @@ Set `node_instance_types = ["t3.large"]` and/or `node_max_size = 6`, then `terra
 1. Add its name to `ecr_repositories` (infra) and apply.
 2. If it needs a database, add it to `db_services` (platform) and apply. That creates `<name>_user`, the database `<name>`, and the Secret `<name>-db`.
 3. If it calls AWS APIs, add an entry to `local.irsa` in `modules/iam/main.tf` with a policy, output its ARN, and add a service account for it in `platform/secrets.tf` (like `claim-intake`).
-4. Add its manifests and an `Application` under `k8s/`.
+4. Add `k8s/base/<name>/` (copy an existing service), list it in `k8s/base/kustomization.yaml` and add its image to both overlays.
 
 ### Recipe: change region
 
@@ -359,8 +359,8 @@ Change `gitops_repo_url`, `gitops_revision` or `gitops_path` in `platform/terraf
 flowchart LR
   B["bootstrap<br/>(local state)"] -- "state bucket + lock table<br/>(-backend-config)" --> I
   I["infra<br/>state: infra/terraform.tfstate"] -- "terraform_remote_state:<br/>cluster endpoint/CA, VPC ID,<br/>RDS endpoint + secret ARN,<br/>MSK brokers, buckets, queues,<br/>table, EMR log group, IRSA ARNs" --> P
-  P["platform<br/>state: platform/terraform.tfstate"] -- "Helm: argo-cd + root Application" --> A["ArgoCD (in EKS)"]
-  A -- "syncs (automated, prune, self-heal)" --> G["Git: k8s/apps/*  →  service manifests"]
+  P["platform<br/>state: platform/terraform.tfstate"] -- "Helm: argo-cd, AppProject claims,<br/>root Application claims-root" --> A["ArgoCD (in EKS)"]
+  A -- "syncs (automated, prune, self-heal)" --> G["Git: gitops/apps/&lt;env&gt;.yaml  →  k8s/overlays/&lt;env&gt;"]
   P -- "Secrets <svc>-db, jwt-keys,<br/>ConfigMap platform-endpoints,<br/>IRSA service accounts" --> K["namespace claims"]
   G -- "Deployments, Services, HPAs,<br/>Ingresses" --> K
 ```

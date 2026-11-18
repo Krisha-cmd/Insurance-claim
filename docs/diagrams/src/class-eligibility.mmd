@@ -1,0 +1,59 @@
+%% Source: GitHub issue #4 body (class diagram). Notation corrected to UML: attributes as name : Type,
+%% parameters as name: Type; see docs/design-document.md, "Diagram sources and corrections".
+classDiagram
+  direction LR
+  class EligibilityController {
+    +get(claimId: UUID, user: CurrentUser) EligibilityResponse
+    +override(claimId: UUID, overrideRequest: OverrideRequest, user: CurrentUser) EligibilityResponse
+  }
+  class EligibilityGrpcService {
+    +check(claimIdRequest: ClaimIdRequest) EligibilityResult
+  }
+  class EligibilityService {
+    +evaluate(claimId: UUID) EligibilityResponse
+    +override(claimId: UUID, overrideRequest: OverrideRequest, user: CurrentUser) EligibilityResponse
+  }
+  class EligibilityEngine {
+    -rules : List~EligibilityRule~
+    +run(ruleContext: RuleContext) List~RuleResult~
+  }
+  class EligibilityRule {
+    <<interface>>
+    +name() String
+    +evaluate(ruleContext: RuleContext) RuleResult
+  }
+  class RuleContext {
+    <<record>>
+    claim : ClaimFacts
+    coverage : Coverage
+    balance : Balance
+  }
+  class RuleResult {
+    <<record>>
+    rule : String
+    passed : boolean
+    message : String
+  }
+  class PolicyActiveRule
+  class WithinPolicyPeriodRule
+  class MemberCoveredRule
+  class TreatmentCoveredRule
+  class WaitingPeriodRule
+  class BalanceAvailableRule
+  class PolicyClient
+  class ClaimClient
+  EligibilityController --> EligibilityService
+  EligibilityGrpcService --> EligibilityService
+  EligibilityService --> EligibilityEngine
+  EligibilityService --> PolicyClient
+  EligibilityService --> ClaimClient
+  EligibilityService --> AuditPublisher
+  EligibilityEngine o-- EligibilityRule
+  EligibilityRule <|.. PolicyActiveRule
+  EligibilityRule <|.. WithinPolicyPeriodRule
+  EligibilityRule <|.. MemberCoveredRule
+  EligibilityRule <|.. TreatmentCoveredRule
+  EligibilityRule <|.. WaitingPeriodRule
+  EligibilityRule <|.. BalanceAvailableRule
+  EligibilityEngine ..> RuleContext
+  EligibilityEngine ..> RuleResult

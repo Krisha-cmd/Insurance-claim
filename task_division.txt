@@ -1,0 +1,56 @@
+Task division: Medical insurance claims system (github.com/Krisha-cmd/Insurance-claim)
+Sources: GitHub issues #1-#9, pull requests #10-#16, and git history (git log --all).
+Issues are listed under their assignee. Commits are counted per git author, merge commits separately.
+
+ID: TODO  Name: Krisha Aggarwal  (GitHub: Krisha-cmd)
+Tasks:
+  - #3 Document Verification Lambda
+  - #6 Payment service and gateway simulator
+  - #9 Ops Dashboard backend
+Contributions:
+  - Business flow, use case, activity and sequence diagrams, README (commit 79430af)
+  - High-level architecture diagram (d9d922c), deployment diagram (8216c58)
+  - Repository and Maven module structure (ef182a6)
+  - Frontend: React/Vite claims portal and ops console (335de50)
+  - Infrastructure: Terraform bootstrap, infra and platform stacks (21f3051)
+  - 7 commits as Krisha-cmd; 6 merge commits as Krisha Aggarwal (merged PRs #10-#15)
+  - PR #14 Document verification Lambda (commit b35a038, see TODO 2)
+  - PR #15 Payment service and gateway simulator (commit fb7c19b, see TODO 2)
+  - PR #16 Ops Dashboard backend (commit 020a742, see TODO 2)
+
+ID: TODO  Name: Tathya Sethi  (GitHub: Tathya-25)
+Tasks:
+  - #1 Policy service
+  - #2 Claim Intake Service
+  - #7 Approval service and 3PC coordinator
+Contributions:
+  - Login service and frontend auth wiring (commit eb23046)
+  - Approval service and 3PC coordinator, gRPC contracts (5b369b8)
+  - Claim Intake service and shared 3PC participant library (8cb3fb5)
+  - Policy service (b088ddf)
+  - 5 commits as Tathya-25 (including 8046f38 "test"); 1 merge commit as Tathya Sethi (merged PR #16)
+  - PR #11 Approval service and 3PC
+  - PR #12 Claim Intake service
+  - PR #13 Policy service
+
+ID: TODO  Name: Praptipriya Phukon  (GitHub: praptipriyaph)
+Tasks:
+  - #4 Eligibility service
+  - #5 Assessment service
+  - #8 Audit Flink Job
+Contributions:
+  - Audit Flink job: audit trail, windowed analytics, fraud flags, 3PC settlement view (commit 7a63299)
+  - Running the Flink job on EMR 7.6.0 with checkpoints, Terraform EMR changes (54b7091)
+  - 2 commits as Praptipriya Phukon
+  - PR #10 Audit Flink Job (#8)
+
+Shared
+  - No issue without an assignee.
+
+TODO
+  1. ID numbers: the members list (ID number, full name, GitHub username) was not provided. Fill in each "ID: TODO".
+     The names above come from git commit author names.
+  2. Commits b35a038, fb7c19b and 020a742 (PRs #14-#16, opened by Krisha-cmd) have the git author name
+     "Krisha-cmd" but the commit email that Tathya-25's commits use. GitHub links commits to accounts by
+     email, so it may show them under Tathya-25. They are listed under Krisha Aggarwal here (PR author and
+     git author name); confirm.

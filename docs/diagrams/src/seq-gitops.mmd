@@ -1,0 +1,17 @@
+%% Source: gitops/README.md "Flow" (added in this change).
+sequenceDiagram
+  autonumber
+  actor Dev as Developer
+  participant GH as GitHub (main)
+  participant CI as deliver workflow
+  participant ECR as Amazon ECR
+  participant Argo as Argo CD (in EKS)
+  participant K8s as namespace claims
+  Dev->>GH: merge PR (validate workflow passed)
+  GH->>CI: push event
+  CI->>CI: mvn verify
+  CI->>ECR: Jib / docker push claims-dev/<svc>:<sha7>
+  CI->>GH: commit k8s/overlays/dev tags "deploy(dev): <sha7> [skip ci]"
+  Argo->>GH: poll (3 min) or webhook
+  Argo->>K8s: kustomize build + apply diff, prune, self-heal
+  K8s-->>Argo: health (readiness /actuator/health/readiness)

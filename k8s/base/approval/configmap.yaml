@@ -1,0 +1,19 @@
+# Non-secret settings for approval. Shared AWS endpoints (KAFKA_BOOTSTRAP, DOCUMENTS_BUCKET,
+# RESULTS_QUEUE_URL, ANALYTICS_TABLE, AWS_REGION) come from the platform-endpoints ConfigMap,
+# which the Terraform platform stack creates.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: approval-config
+  labels:
+    app.kubernetes.io/name: approval
+    app.kubernetes.io/part-of: claims
+data:
+  SPRING_PROFILES_ACTIVE: "aws"
+  JWT_JWKS_URI: "http://login.claims.svc.cluster.local/.well-known/jwks.json"
+  GRPC_INTAKE_TARGET: "dns:///claim-intake:9090"
+  GRPC_POLICY_TARGET: "dns:///policy:9090"
+  GRPC_PAYMENT_TARGET: "dns:///payment:9090"
+  GRPC_ASSESSMENT_TARGET: "dns:///assessment:9090"
+  GRPC_CLAIM_TARGET: "dns:///claim-intake:9090"
+  CHAOS_ENABLED: "true"

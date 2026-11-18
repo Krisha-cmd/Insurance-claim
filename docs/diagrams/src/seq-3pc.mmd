@@ -1,0 +1,73 @@
+%% Source: backend/services/approval/README.md "The protocol" (also in issue/PR #11). UML corrections: the three
+%% participants are separate lifelines with par fragments (one message cannot target several lifelines); Assessment
+%% and Claim Intake calls go to their own lifelines instead of self-calls; the event is an asynchronous message to Kafka.
+sequenceDiagram
+    autonumber
+    actor Adj as Adjuster
+    participant A as :Approval (coordinator)
+    participant DB as :Approval DB (log)
+    participant AS as :Assessment
+    participant CI as :Claim Intake
+    participant PO as :Policy
+    participant PA as :Payment
+    participant K as :Kafka claim-events
+
+    Adj->>A: POST /api/approvals/{id} {APPROVED, comment}
+    A->>AS: GetFinalAmount(claimId)
+    AS-->>A: amount
+    A->>DB: INSERT approval_decision (tx open)
+    A->>CI: UpdateStatus(APPROVED)
+    CI-->>A: ok
+    A->>DB: commit
+    A->>DB: settlement_tx = WAITING_VOTES
+    A-->>Adj: 202 {txId, attempt}
+    Note over A,PA: Phase 1 CanCommit, parallel, 5 s deadline
+    par
+        A->>CI: CanCommit(txId, claimId, amount)
+        CI-->>A: VoteReply
+    and
+        A->>PO: CanCommit(txId, claimId, amount)
+        PO-->>A: VoteReply
+    and
+        A->>PA: CanCommit(txId, claimId, amount)
+        PA-->>A: VoteReply
+    end
+    alt a NO, a timeout or an error
+        A->>DB: ABORTING
+        par
+            A->>CI: Abort(txId)
+        and
+            A->>PO: Abort(txId)
+        and
+            A->>PA: Abort(txId)
+        end
+        A->>DB: ABORTED
+        A->>CI: UpdateStatus(SETTLEMENT_FAILED)
+    else all YES
+        A->>DB: PRECOMMITTING
+        Note over A,PA: Phase 2 PreCommit, 5 s (a missing ack does not stop the commit)
+        par
+            A->>CI: PreCommit(txId)
+            CI-->>A: AckReply PRECOMMITTED
+        and
+            A->>PO: PreCommit(txId)
+            PO-->>A: AckReply PRECOMMITTED
+        and
+            A->>PA: PreCommit(txId)
+            PA-->>A: AckReply PRECOMMITTED
+        end
+        A->>DB: COMMITTING
+        Note over A,PA: Phase 3 DoCommit, 5 s
+        par
+            A->>CI: DoCommit(txId)
+            CI-->>A: AckReply COMMITTED
+        and
+            A->>PO: DoCommit(txId)
+            PO-->>A: AckReply COMMITTED
+        and
+            A->>PA: DoCommit(txId)
+            PA-->>A: AckReply COMMITTED
+        end
+        A->>DB: COMMITTED (all three acked)
+        A-)K: CLAIM_SETTLED
+    end

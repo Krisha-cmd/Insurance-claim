@@ -1,0 +1,37 @@
+// UML component diagram, part 2: data stores and asynchronous paths (S3, SQS, Kafka, DynamoDB). Also replaces the
+// data/messaging half of diagrams/architecture-diagram.svg. Dependencies are dashed with open arrowheads.
+digraph G {
+  graph [rankdir=TB, fontname="Helvetica", fontsize=11, nodesep=0.3, ranksep=0.7, pad=0.2, newrank=true];
+  node  [shape=box, style="rounded,filled", fillcolor="#f4f6fb", color="#3b4252", fontname="Helvetica", fontsize=10, margin="0.12,0.06"];
+  edge  [style=dashed, arrowhead=vee, arrowsize=0.7, color="#3b4252", fontname="Helvetica", fontsize=8, fontcolor="#2e3440"];
+  graph [rankdir=LR, ranksep=1.0];
+  spa    [label=<<font point-size="8">«component»</font><br/><b>Claims portal</b>>];
+  intake [label=<<font point-size="8">«component»</font><br/><b>Claim Intake</b>>];
+  lambda [label=<<font point-size="8">«component» «AWS Lambda»</font><br/><b>Document Verification</b>>];
+  pubs   [label=<<font point-size="8">«component»</font><br/><b>Policy, Approval, Payment,<br/>Ops Dashboard</b>>];
+  flink  [label=<<font point-size="8">«component» «Flink on EMR»</font><br/><b>Audit</b>>];
+  ops    [label=<<font point-size="8">«component»</font><br/><b>Ops Dashboard</b>>];
+  svcdb  [label=<<font point-size="8">«component»</font><br/><b>Login, Policy, Claim Intake,<br/>Approval, Payment</b>>];
+  node [style="filled", fillcolor="#ffffff"];
+  s3  [label=<<font point-size="8">«bucket» S3</font><br/>documents>];
+  q1  [label=<<font point-size="8">«queue» SQS (+DLQ)</font><br/>doc-upload-events>];
+  q2  [label=<<font point-size="8">«queue» SQS (+DLQ)</font><br/>doc-verification-results>];
+  kev [label=<<font point-size="8">«topic» MSK</font><br/>claim-events>];
+  kan [label=<<font point-size="8">«topic» MSK</font><br/>claim-analytics>];
+  ddb [label=<<font point-size="8">«table» DynamoDB</font><br/>claims-analytics>];
+  rds [label=<<font point-size="8">«database» RDS PostgreSQL 16</font><br/>one database per service:<br/>login, policy, claims, approval, payment>];
+  spa -> s3 [label="PUT (pre-signed)"];
+  intake -> s3 [label="presign"];
+  s3 -> q1 [label="ObjectCreated"];
+  lambda -> q1 [label="consume (batch 5)"];
+  lambda -> s3 [label="HeadObject"];
+  lambda -> q2 [label="send result"];
+  intake -> q2 [label="long poll"];
+  intake -> kev [label="publish"];
+  pubs -> kev [label="publish"];
+  flink -> kev [label="consume"];
+  flink -> kan [label="publish"];
+  flink -> ddb [label="PutItem"];
+  ops -> ddb [label="Query"];
+  svcdb -> rds [label="JDBC"];
+}

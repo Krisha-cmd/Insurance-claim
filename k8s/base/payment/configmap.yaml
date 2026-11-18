@@ -1,0 +1,16 @@
+# Non-secret settings for payment. Shared AWS endpoints (KAFKA_BOOTSTRAP, DOCUMENTS_BUCKET,
+# RESULTS_QUEUE_URL, ANALYTICS_TABLE, AWS_REGION) come from the platform-endpoints ConfigMap,
+# which the Terraform platform stack creates.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment-config
+  labels:
+    app.kubernetes.io/name: payment
+    app.kubernetes.io/part-of: claims
+data:
+  SPRING_PROFILES_ACTIVE: "aws"
+  JWT_JWKS_URI: "http://login.claims.svc.cluster.local/.well-known/jwks.json"
+  GRPC_PORT: "9090"
+  GATEWAY_BASE_URL: "http://gateway-simulator"
+  GRPC_CLAIM_TARGET: "dns:///claim-intake:9090"
