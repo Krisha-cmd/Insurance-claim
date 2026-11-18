@@ -8,7 +8,7 @@ digraph G {
   spa    [label=<<font point-size="8">«component»</font><br/><b>Claims portal</b>>];
   intake [label=<<font point-size="8">«component»</font><br/><b>Claim Intake</b>>];
   lambda [label=<<font point-size="8">«component» «AWS Lambda»</font><br/><b>Document Verification</b>>];
-  pubs   [label=<<font point-size="8">«component»</font><br/><b>Policy, Assessment, Approval,<br/>Payment, Ops Dashboard</b>>];
+  pubs   [label=<<font point-size="8">«component»</font><br/><b>Policy, Eligibility, Assessment,<br/>Approval, Payment, Ops Dashboard</b>>];
   flink  [label=<<font point-size="8">«component» «Flink on EMR»</font><br/><b>Audit</b>>];
   ops    [label=<<font point-size="8">«component»</font><br/><b>Ops Dashboard</b>>];
   svcdb  [label=<<font point-size="8">«component»</font><br/><b>Login, Policy, Claim Intake,<br/>Assessment, Approval, Payment</b>>];

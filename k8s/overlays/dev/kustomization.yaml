@@ -17,6 +17,8 @@ replicas:
     count: 1
   - name: assessment
     count: 1
+  - name: eligibility
+    count: 1
   - name: approval
     count: 1
   - name: payment
@@ -42,6 +44,10 @@ patches:
       - { op: replace, path: /spec/minReplicas, value: 1 }
       - { op: replace, path: /spec/maxReplicas, value: 2 }
   - target: { kind: HorizontalPodAutoscaler, name: assessment }
+    patch: |-
+      - { op: replace, path: /spec/minReplicas, value: 1 }
+      - { op: replace, path: /spec/maxReplicas, value: 2 }
+  - target: { kind: HorizontalPodAutoscaler, name: eligibility }
     patch: |-
       - { op: replace, path: /spec/minReplicas, value: 1 }
       - { op: replace, path: /spec/maxReplicas, value: 2 }
@@ -82,6 +88,9 @@ images:
     newTag: latest
   - name: assessment
     newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/assessment
+    newTag: latest
+  - name: eligibility
+    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/eligibility
     newTag: latest
   - name: approval
     newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/approval

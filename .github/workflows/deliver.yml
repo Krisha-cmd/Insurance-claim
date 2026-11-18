@@ -37,7 +37,7 @@ concurrency:
 
 env:
   ENVIRONMENT: ${{ inputs.environment || 'dev' }}
-  SERVICES: login claim-intake policy assessment approval payment gateway-simulator ops-dashboard
+  SERVICES: login claim-intake policy eligibility assessment approval payment gateway-simulator ops-dashboard
 
 jobs:
   test:
@@ -59,7 +59,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        service: [login, claim-intake, policy, assessment, approval, payment, gateway-simulator, ops-dashboard]
+        service: [login, claim-intake, policy, eligibility, assessment, approval, payment, gateway-simulator, ops-dashboard]
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ inputs.ref || github.sha }}" }

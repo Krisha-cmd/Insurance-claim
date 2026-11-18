@@ -73,6 +73,11 @@ public class AuditEventMapper {
                 before.put("status", from);
                 after.put("status", to);
             }
+            case "ELIGIBILITY_OVERRIDDEN" -> {
+                before.put("eligible", change.get("before"));
+                after.put("eligible", change.get("after"));
+                after.put("reason", change.get("reason"));
+            }
             case "ASSESSMENT_COMPLETED" -> after.put("proposedAmount", amount != null ? amount : change.get("after"));
             case "ASSESSMENT_ADJUSTED" -> {
                 before.put("proposedAmount", change.get("before"));
