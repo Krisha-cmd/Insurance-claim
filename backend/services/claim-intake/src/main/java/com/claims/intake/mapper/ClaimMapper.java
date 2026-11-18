@@ -12,6 +12,7 @@ import com.claims.intake.domain.EligibilityCheck;
 import com.claims.intake.domain.VerificationStatus;
 import com.claims.intake.storage.PresignedUrlService;
 import com.claims.proto.claim.v1.ClaimDetails;
+import com.claims.proto.claim.v1.EligibilityRecord;
 import com.claims.proto.claim.v1.RuleResult;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -118,6 +119,20 @@ public class ClaimMapper {
                 .setCurrency(currency)
                 .setSubmittedBy(c.getSubmittedBy().toString())
                 .build();
+    }
+
+    /** GetClaim's answer: the details plus the latest eligibility result, if any. */
+    public ClaimDetails details(Claim c, EligibilityCheck latest) {
+        ClaimDetails d = details(c);
+        if (latest == null) return d;
+        return d.toBuilder().setLatestEligibility(EligibilityRecord.newBuilder()
+                .setEligible(latest.isEligible())
+                .setOverridden(latest.isOverridden())
+                .setOverrideReason(latest.getOverrideReason() == null ? "" : latest.getOverrideReason())
+                .setOverrideComment(latest.getOverrideComment() == null ? "" : latest.getOverrideComment())
+                .setCheckedBy(latest.getCheckedBy())
+                .setCheckedAt(latest.getCheckedAt().toString())
+                .build()).build();
     }
 
     private static String text(BigDecimal v) {

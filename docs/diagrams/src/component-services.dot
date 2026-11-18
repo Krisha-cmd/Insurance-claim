@@ -14,7 +14,7 @@ digraph G {
   intake  [label=<<font point-size="8">«component» «3PC participant»</font><br/><b>Claim Intake</b>>];
   policy  [label=<<font point-size="8">«component» «3PC participant»</font><br/><b>Policy</b>>];
   payment [label=<<font point-size="8">«component» «3PC participant»</font><br/><b>Payment</b>>];
-  elig    [label=<<font point-size="8">«component» planned (#4)</font><br/><b>Eligibility</b>>, style="rounded,dashed,filled"];
+  elig    [label=<<font point-size="8">«component»</font><br/><b>Eligibility</b>>];
   assess  [label=<<font point-size="8">«component»</font><br/><b>Assessment</b>>];
   gw      [label=<<font point-size="8">«component» «external system stub»</font><br/><b>Gateway simulator</b>>];
   {rank=same; login; ops; approval;}
@@ -34,6 +34,10 @@ digraph G {
   approval -> assess [label="GetFinalAmount"];
   intake -> policy [label="ValidateMember"];
   intake -> elig [label="Check"];
+  elig -> policy [label="GetPolicy, GetCoverage,
+GetBalance"];
+  elig -> intake [label="GetClaim,
+RecordEligibility"];
   intake -> assess [label="Assess"];
   assess -> policy [label="GetCoverage,
 GetBalance"];

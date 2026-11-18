@@ -25,9 +25,6 @@ jobs:
           for env in dev prod; do
             kustomize build k8s/overlays/$env | kubeconform -strict -summary $SCHEMAS
           done
-          for s in eligibility; do   # not in the overlays yet
-            kustomize build k8s/base/$s | kubeconform -strict -summary $SCHEMAS
-          done
           kubeconform -strict -summary $SCHEMAS gitops/argocd gitops/apps
 
   terraform:

@@ -35,6 +35,9 @@ public class EligibilityCheck {
     @Column(name = "override_comment", length = 2000)
     private String overrideComment;
 
+    @Column(name = "override_reason", length = 200)
+    private String overrideReason;
+
     @Column(name = "checked_by", nullable = false)
     private String checkedBy;
 
@@ -46,12 +49,18 @@ public class EligibilityCheck {
 
     public EligibilityCheck(UUID claimId, boolean eligible, String ruleResultsJson, boolean overridden,
                             String overrideComment, Actor by, Instant at) {
+        this(claimId, eligible, ruleResultsJson, overridden, overrideComment, null, by, at);
+    }
+
+    public EligibilityCheck(UUID claimId, boolean eligible, String ruleResultsJson, boolean overridden,
+                            String overrideComment, String overrideReason, Actor by, Instant at) {
         this.id = UUID.randomUUID();
         this.claimId = claimId;
         this.eligible = eligible;
         this.ruleResultsJson = ruleResultsJson;
         this.overridden = overridden;
         this.overrideComment = overrideComment;
+        this.overrideReason = overrideReason;
         this.checkedBy = by.label();
         this.checkedAt = at;
     }
@@ -62,6 +71,7 @@ public class EligibilityCheck {
     public String getRuleResultsJson() { return ruleResultsJson; }
     public boolean isOverridden() { return overridden; }
     public String getOverrideComment() { return overrideComment; }
+    public String getOverrideReason() { return overrideReason; }
     public String getCheckedBy() { return checkedBy; }
     public Instant getCheckedAt() { return checkedAt; }
 }

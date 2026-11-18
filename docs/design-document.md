@@ -64,7 +64,7 @@ document loop, the parallel eligibility and assessment checks, and the parallel 
 | 1 | Policy | `backend/services/policy` | EKS |
 | 2 | Claim Intake | `backend/services/claim-intake` | EKS |
 | 3 | Document Verification | `backend/functions/document-verification` | AWS Lambda |
-| 4 | Eligibility | designed in issue #4; `backend/services/eligibility` holds only a `pom.xml` | EKS (manifests ready, not deployed) |
+| 4 | Eligibility | `backend/services/eligibility` (stateless, no database) | EKS |
 | 5 | Assessment | `backend/services/assessment` | EKS (one of the two CPU-based HPAs) |
 | 6 | Approval (3PC coordinator) | `backend/services/approval` | EKS, exactly one replica |
 | 7 | Payment | `backend/services/payment`, plus `gateway-simulator` | EKS |
@@ -123,7 +123,7 @@ paths (Figure 6). Together they replace `diagrams/architecture-diagram.svg`.
 
 *Figure 5. UML component diagram: synchronous interfaces.* Shows the browser reaching services only through the
 ALB with REST, and the services calling each other with gRPC (contracts in `backend/proto`). Approval depends on
-the three 3PC participants; dashed components are designed but not built.
+the three 3PC participants.
 
 ![Figure 6. Components, data stores and asynchronous paths](diagrams/component-data.png)
 
@@ -201,13 +201,16 @@ login and the JWKS requires the login service's JWT. Errors use one shape:
 | **Failures** | A rule failure is a REJECTED result, not an error. An S3/SQS error makes only that message fail, so it is retried and then lands in the DLQ. A malformed body is dropped |
 | **Data** | None; no database, no Spring |
 
-### 4.5 Eligibility (issue #4): designed, not built
+### 4.5 Eligibility (issue #4)
 
-Designed REST: `GET /api/eligibility/{claimId}` and an adjuster override. Designed gRPC: `Check`. A rule engine
-(`EligibilityRule` implementations: policy active, within period, member covered, treatment covered, waiting
-period, balance available) runs over data from Policy and Claim Intake (Figure 14). The design keeps it
-stateless; results are stored by Claim Intake (`eligibility_check`). Manifests exist in `k8s/base/eligibility`
-but are not in the overlays, and no `eligibility` database is created (`db_services`).
+| | |
+| --- | --- |
+| **REST** | `GET /api/eligibility/{claimId}` (owner or adjuster): re-evaluates now and merges the latest override recorded in Claim Intake. `PUT /api/eligibility/{claimId}/override` (adjuster) `{eligible, reason, comment}`: comment ≥ 10 characters, only before a decision |
+| **gRPC serves** | `Check(ClaimDetails)` (Claim Intake's workflow): `{eligible, rules[], checked_at}`; stores and emits nothing |
+| **gRPC calls** | `PolicyService.GetPolicy` / `GetCoverage` / `GetBalance`; `ClaimService.GetClaim` (with `latest_eligibility`) and `RecordEligibility` (an override, with its reason) |
+| **Rules** | Six `EligibilityRule` beans in `@Order`: policy active, admission within the period, member covered, treatment covered, waiting period passed, balance > 0. The engine runs all of them and collects every result; eligible = all passed. A new rule is a new bean (Figure 14) |
+| **Data** | None. Results live in Claim Intake's `eligibility_check` (with `override_reason`, migration V2) |
+| **Events** | `ELIGIBILITY_OVERRIDDEN {before, after, reason}` with the comment; `ELIGIBILITY_CHECKED` is emitted by Claim Intake |
 
 ### 4.6 Assessment (issue #5)
 
@@ -330,7 +333,7 @@ validator that aggregates four `ValidationRule` realizations, and a result publi
 
 ![Figure 14. Eligibility classes](diagrams/class-eligibility.png)
 
-*Figure 14. Class diagram: Eligibility (issue #4, not built).* Shows a rule engine aggregating six
+*Figure 14. Class diagram: Eligibility (issue #4).* Shows a rule engine aggregating six
 `EligibilityRule` realizations, evaluated over a `RuleContext`.
 
 ![Figure 15. Assessment classes](diagrams/class-assessment.png)
@@ -515,8 +518,8 @@ stay separate logical databases with separate users and Secrets.
   databases are the source of truth.
 - **The Payment authorization orphan** (Section 4.8) and **tokens that are not revoked at logout** (Section 4.1)
   are documented limits.
-- **Eligibility is designed but not built.** Claim Intake already tolerates its absence: a
-  failed check skips its step.
+- **Eligibility and Assessment are optional for the workflow.** If either is down, Claim Intake skips that step
+  and still sends the claim to review, where the adjuster sees what is missing.
 
 ---
 
@@ -567,7 +570,7 @@ and Graphviz sources with `dot` 14.0.2. The hand-drawn SVGs were rasterized with
 | 11–19 | Class diagrams | GitHub issue bodies #1–#9 | mermaid | **Attributes** changed from `Type name` to UML `name : Type`. **Parameters** changed to `name: Type`; unnamed ones got a name derived from the type. **Approval:** the association `SettlementTx → CoordinatorState` duplicated the `state` attribute, so it was removed. **Payment:** the same fix for `Payment → PaymentStatus`; `Payment 1–1 PaymentTxLog` became `PaymentTxLog 1 — 0..1 Payment` (`payment_id` is nullable); the REST dependency was labelled «call» |
 | 20 | Login ER | root `README.md` | mermaid | `USERS ||--o{ LOGIN_ATTEMPTS` → `|o--o{`: `login_attempts.user_id` is nullable in the migration |
 | 21 | Policy ER | root `README.md` | mermaid | `limit_reservation` is keyed by `tx_id` (PK) in the migration, not by a separate `id` |
-| 22 | Claims ER | root `README.md` | mermaid | `settlement_participation.claim_id` is nullable (abort tombstone): `||--o{` → `|o--o{` |
+| 22 | Claims ER | root `README.md` | mermaid | `settlement_participation.claim_id` is nullable (abort tombstone): `||--o{` → `|o--o{`. `eligibility_check` gains the missing `checked_by` and `override_reason` (migration V2) |
 | 23 | Payments ER | root `README.md` | mermaid | `UNIQUE (claim_id)` → one *live* payment per claim (partial unique index; the plain constraint would block a retry). `PAYMENT ||--|| PAYMENT_TX_LOG` → `|o--||` (nullable `payment_id`) |
 | 24 | Approval ER | none existed | new | Drawn from `approval/.../V1__init.sql` |
 | 25 | Claim state machine | `claim-intake/README.md` (ASCII) | text | Drawn as a UML state machine; checked against `ClaimStateMachine.ALLOWED` |

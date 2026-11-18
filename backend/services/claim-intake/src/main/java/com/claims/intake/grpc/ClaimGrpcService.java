@@ -57,13 +57,17 @@ public class ClaimGrpcService extends ClaimServiceGrpc.ClaimServiceImplBase {
 
     @Override
     public void getClaim(GetClaimRequest req, StreamObserver<ClaimDetails> out) {
-        respond(out, () -> mapper.details(claims.require(uuid(req.getClaimId()))));
+        respond(out, () -> {
+            UUID id = uuid(req.getClaimId());
+            return mapper.details(claims.require(id), claims.latestEligibility(id).orElse(null));
+        });
     }
 
     @Override
     public void recordEligibility(RecordEligibilityRequest req, StreamObserver<RecordReply> out) {
         respond(out, () -> reply(claims.recordEligibility(uuid(req.getClaimId()), req.getEligible(),
-                mapper.rulesJson(req.getRulesList()), req.getOverridden(), req.getOverrideComment(), actor(req.getActor()))));
+                mapper.rulesJson(req.getRulesList()), req.getOverridden(), req.getOverrideComment(), req.getOverrideReason(),
+                actor(req.getActor()))));
     }
 
     @Override
