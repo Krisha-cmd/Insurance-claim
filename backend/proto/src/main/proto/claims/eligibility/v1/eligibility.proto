@@ -1,0 +1,25 @@
+// Implemented by the Eligibility service. Called by Claim Intake once all required documents are verified.
+syntax = "proto3";
+
+package claims.eligibility.v1;
+
+import "claims/claim/v1/claim.proto";
+
+option java_multiple_files = true;
+option java_package = "com.claims.proto.eligibility.v1";
+option java_outer_classname = "EligibilityProto";
+
+service EligibilityService {
+  // Runs the plan's eligibility rules for the claim and stores the result on the Eligibility side.
+  rpc Check(CheckEligibilityRequest) returns (CheckEligibilityReply);
+}
+
+message CheckEligibilityRequest {
+  claims.claim.v1.ClaimDetails claim = 1;
+}
+
+message CheckEligibilityReply {
+  bool eligible = 1;
+  repeated claims.claim.v1.RuleResult rules = 2;
+  string checked_at = 3;   // ISO-8601 instant
+}

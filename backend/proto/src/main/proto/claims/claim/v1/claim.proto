@@ -1,4 +1,5 @@
-// Implemented by the Claim Intake service, which owns the claim's status.
+// Implemented by the Claim Intake service, which owns the claim and its status.
+// Callers: Approval (UpdateStatus), Eligibility and Assessment (GetClaim, Record*).
 syntax = "proto3";
 
 package claims.claim.v1;
@@ -11,6 +12,17 @@ service ClaimService {
   // Moves the claim to `status`. Idempotent: if the claim already has that status it returns OK
   // without a change. NOT_FOUND for an unknown claim, FAILED_PRECONDITION for a disallowed transition.
   rpc UpdateStatus(UpdateStatusRequest) returns (UpdateStatusReply);
+
+  // The claim as other services need it. NOT_FOUND for an unknown claim.
+  rpc GetClaim(GetClaimRequest) returns (ClaimDetails);
+
+  // Stores an eligibility result (automatic, or an adjuster override from the Eligibility service).
+  // Does not change the status.
+  rpc RecordEligibility(RecordEligibilityRequest) returns (RecordReply);
+
+  // Stores the proposed (payable) amount (automatic, or an adjuster adjustment from Assessment).
+  // Does not change the status.
+  rpc RecordAssessment(RecordAssessmentRequest) returns (RecordReply);
 }
 
 // Same values as CLAIM_STATUS in frontend/src/lib/status.js.
@@ -47,4 +59,54 @@ message UpdateStatusReply {
   ClaimStatus previous_status = 1;
   ClaimStatus status = 2;
   bool changed = 3;           // false when the claim already had this status
+}
+
+message GetClaimRequest {
+  string claim_id = 1;
+}
+
+// Everything Eligibility and Assessment need to evaluate a claim.
+message ClaimDetails {
+  string claim_id = 1;
+  string claim_no = 2;
+  string policy_no = 3;
+  string member_id = 4;
+  string policyholder_id = 5;
+  string hospital_name = 6;
+  string admission_date = 7;      // ISO yyyy-MM-dd
+  string discharge_date = 8;
+  string diagnosis = 9;
+  string treatment_category = 10;
+  string claimed_amount = 11;     // decimal as text
+  string proposed_amount = 12;    // empty until assessed
+  string approved_amount = 13;    // empty until settled
+  ClaimStatus status = 14;
+  string currency = 15;
+}
+
+message RuleResult {
+  string rule = 1;     // e.g. POLICY_ACTIVE, WAITING_PERIOD
+  string label = 2;    // human-readable
+  bool passed = 3;
+  string detail = 4;
+}
+
+message RecordEligibilityRequest {
+  string claim_id = 1;
+  bool eligible = 2;
+  repeated RuleResult rules = 3;
+  bool overridden = 4;
+  string override_comment = 5;
+  Actor actor = 6;
+}
+
+message RecordAssessmentRequest {
+  string claim_id = 1;
+  string proposed_amount = 2;     // decimal as text
+  string comment = 3;
+  Actor actor = 4;
+}
+
+message RecordReply {
+  ClaimStatus status = 1;
 }

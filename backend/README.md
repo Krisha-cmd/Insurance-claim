@@ -1,17 +1,20 @@
 # Backend
 
 Java 21 · Spring Boot 3.3 · Maven multi-module. One module per service. Active in the parent
-[`pom.xml`](pom.xml): `proto`, `common`, `services/login` and `services/approval`; the others are
-commented out and get switched on one at a time as they are built.
+[`pom.xml`](pom.xml): `proto`, `common`, `participant`, `services/login`, `services/approval` and
+`services/claim-intake`; the others are commented out and get switched on one at a time as they are built.
 
 ```
 backend/
 ├── pom.xml                 parent: Spring Boot parent, Java 21, Jib + git-commit-id plugin config
 ├── docker-compose.yml      local Postgres 16 (database/user/password: login/login/login)
 ├── proto/                  gRPC contracts (.proto) → generated Java stubs
-├── common/                 ApiError, ApiException, GlobalExceptionHandler base, ClaimEvent, JSON logging
+├── common/                 ApiError, GlobalExceptionHandler base, ClaimEvent envelope + EventPublishers, JSON logging
+├── participant/            3PC participant base (ThreePhaseParticipant, ParticipantTx, gRPC adapter);
+│                           its test-jar holds ThreePhaseParticipantContract, the cases every participant must pass
 ├── services/login/         login service: /api/auth/*, /.well-known/jwks.json
-└── services/approval/      decisions + 3PC settlement coordinator (see its README)
+├── services/approval/      decisions + 3PC settlement coordinator (see its README)
+└── services/claim-intake/  claims, uploads, verification results, checks, queue, 3PC participant (see its README)
 ```
 
 ## Prerequisites

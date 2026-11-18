@@ -1,0 +1,30 @@
+// Implemented by the Policy service. Called by Claim Intake when a claim is filed.
+syntax = "proto3";
+
+package claims.policy.v1;
+
+option java_multiple_files = true;
+option java_package = "com.claims.proto.policy.v1";
+option java_outer_classname = "PolicyProto";
+
+service PolicyService {
+  // Is `member_id` insured under `policy_no`, and does the policy belong to `policyholder_id`?
+  // Always answers OK with valid=false and a reason for a business "no";
+  // NOT_FOUND only when the policy number does not exist.
+  rpc ValidateMember(ValidateMemberRequest) returns (ValidateMemberReply);
+}
+
+message ValidateMemberRequest {
+  string policy_no = 1;
+  string member_id = 2;          // UUID
+  string policyholder_id = 3;    // UUID, from the caller's JWT (policyholderId claim)
+}
+
+message ValidateMemberReply {
+  bool valid = 1;
+  string reason = 2;             // why not, e.g. "Policy lapsed on 2026-03-31"
+  string policyholder_name = 3;
+  string member_name = 4;
+  string relation = 5;           // SELF | SPOUSE | CHILD | PARENT
+  string policy_status = 6;      // ACTIVE | LAPSED
+}

@@ -7,7 +7,7 @@ import com.claims.approval.api.dto.SettlementView;
 import com.claims.approval.domain.ApprovalDecision;
 import com.claims.approval.domain.Decision;
 import com.claims.approval.domain.SettlementTx;
-import com.claims.approval.events.AuditPublisher;
+import com.claims.common.event.EventPublisher;
 import com.claims.approval.events.Events;
 import com.claims.approval.grpc.AssessmentClient;
 import com.claims.approval.grpc.ClaimClient;
@@ -41,14 +41,14 @@ public class ApprovalService {
     private final ThreePhaseCommitCoordinator coordinator;
     private final AssessmentClient assessment;
     private final ClaimClient claims;
-    private final AuditPublisher audit;
+    private final EventPublisher audit;
     private final SettlementViewMapper views;
     private final TransactionTemplate tx;
     private final Clock clock;
 
     public ApprovalService(ApprovalDecisionRepository decisions, SettlementTxRepository txs,
                            ThreePhaseCommitCoordinator coordinator, AssessmentClient assessment, ClaimClient claims,
-                           AuditPublisher audit, SettlementViewMapper views, TransactionTemplate tx, Clock clock) {
+                           EventPublisher audit, SettlementViewMapper views, TransactionTemplate tx, Clock clock) {
         this.decisions = decisions;
         this.txs = txs;
         this.coordinator = coordinator;
@@ -90,9 +90,10 @@ public class ApprovalService {
 
         Map<String, Object> change = new LinkedHashMap<>();
         change.put("decision", decision.name());
+        change.put("previousStatus", statusName(previous));
         if (amount != null) change.put("approvedAmount", amount);
         audit.publish(Events.claim(decision == Decision.APPROVED ? "CLAIM_APPROVED" : "CLAIM_REJECTED", claimId,
-                user.actor(), statusName(previous), target.name(), change, comment, null, now));
+                user.actor(), amount, change, comment, null, now));
         log.info("Claim {} {} by {}{}", claimId, decision, user.id(), amount != null ? " for " + amount : "");
 
         if (decision == Decision.REJECTED) {
@@ -132,7 +133,7 @@ public class ApprovalService {
         Map<String, Object> change = new LinkedHashMap<>();
         change.put("attempt", attempt);
         last.ifPresent(t -> change.put("previousTxId", t.getTxId()));
-        audit.publish(Events.claim("SETTLEMENT_RETRIED", claimId, user.actor(), null, null, change, null, txId, clock.instant()));
+        audit.publish(Events.claim("SETTLEMENT_RETRIED", claimId, user.actor(), decision.getAmount(), change, null, txId, clock.instant()));
         log.info("Settlement retried for claim {} by {} (attempt {})", claimId, user.id(), attempt);
         return new DecisionResponse(claimId, Decision.APPROVED, ClaimStatus.APPROVED.name(), txId, attempt);
     }

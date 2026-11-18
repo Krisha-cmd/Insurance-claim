@@ -3,7 +3,7 @@ package com.claims.approval.support;
 import com.claims.approval.api.CurrentUser;
 import com.claims.approval.domain.CoordinatorState;
 import com.claims.approval.domain.SettlementTx;
-import com.claims.approval.events.AuditPublisher;
+import com.claims.common.event.EventPublisher;
 import com.claims.approval.grpc.GrpcChannelFactory;
 import com.claims.approval.repository.SettlementTxRepository;
 import com.claims.approval.service.ChaosMode;
@@ -110,7 +110,7 @@ public abstract class IntegrationTestBase {
 
     @Autowired protected SettlementTxRepository txs;
     @Autowired protected ChaosSwitch chaos;
-    @Autowired protected AuditPublisher auditPublisher;
+    @Autowired protected EventPublisher auditPublisher;
 
     protected RecordingAuditPublisher events() {
         return (RecordingAuditPublisher) auditPublisher;
