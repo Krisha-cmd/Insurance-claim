@@ -1,0 +1,14 @@
+# Non-secret settings for login. Shared AWS endpoints (KAFKA_BOOTSTRAP, DOCUMENTS_BUCKET,
+# RESULTS_QUEUE_URL, ANALYTICS_TABLE, AWS_REGION) come from the platform-endpoints ConfigMap,
+# which the Terraform platform stack creates.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: login-config
+  labels:
+    app.kubernetes.io/name: login
+    app.kubernetes.io/part-of: claims
+data:
+  SPRING_PROFILES_ACTIVE: "aws"
+  JWT_JWKS_URI: "http://login.claims.svc.cluster.local/.well-known/jwks.json"
+  CORS_ALLOWED_ORIGINS: "http://localhost:5173"

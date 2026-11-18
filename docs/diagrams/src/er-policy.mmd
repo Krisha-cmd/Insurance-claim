@@ -1,0 +1,62 @@
+%% Source: README.md, "Policy Database". Corrected: limit_reservation is keyed by tx_id (V1__init.sql).
+erDiagram
+    POLICYHOLDER ||--|{ POLICY : "holds"
+    PLAN ||--o{ POLICY : "defines"
+    PLAN ||--|{ COVERAGE_RULE : "contains"
+    POLICY ||--|{ INSURED_MEMBER : "covers"
+    POLICY ||--|| POLICY_BALANCE : "tracks"
+    POLICY ||--o{ LIMIT_RESERVATION : "reserves (3PC)"
+    POLICYHOLDER {
+        uuid id PK
+        uuid user_id UK "ref: Login DB"
+        varchar full_name
+        date date_of_birth
+        varchar phone
+        varchar email
+    }
+    PLAN {
+        uuid id PK
+        varchar name
+        decimal deductible
+        decimal copay_pct
+        decimal room_rent_limit
+    }
+    COVERAGE_RULE {
+        uuid id PK
+        uuid plan_id FK
+        varchar treatment_category
+        boolean covered
+        decimal sub_limit
+        int waiting_period_days
+    }
+    POLICY {
+        uuid id PK
+        varchar policy_no UK
+        uuid policyholder_id FK
+        uuid plan_id FK
+        date start_date
+        date end_date
+        decimal sum_insured
+        varchar status "ACTIVE | LAPSED"
+    }
+    INSURED_MEMBER {
+        uuid id PK
+        uuid policy_id FK
+        varchar full_name
+        varchar relation "SELF | SPOUSE | CHILD | PARENT"
+        date date_of_birth
+    }
+    POLICY_BALANCE {
+        uuid policy_id PK, FK
+        decimal utilised
+        decimal reserved
+        bigint version "optimistic lock"
+    }
+    LIMIT_RESERVATION {
+        uuid tx_id PK "3PC transaction"
+        uuid policy_id FK
+        uuid claim_id "ref: Claims DB"
+        decimal amount
+        varchar state "PREPARED | PRECOMMITTED | COMMITTED | ABORTED"
+        timestamp updated_at
+    }

@@ -1,0 +1,22 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: approval
+  labels:
+    app.kubernetes.io/name: approval
+    app.kubernetes.io/part-of: claims
+spec:
+  # the coordinator must run as a single replica (see backend/services/approval/README.md)
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: approval
+  minReplicas: 1
+  maxReplicas: 1
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

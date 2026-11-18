@@ -1,0 +1,13 @@
+# Non-secret settings for gateway-simulator. Shared AWS endpoints (KAFKA_BOOTSTRAP, DOCUMENTS_BUCKET,
+# RESULTS_QUEUE_URL, ANALYTICS_TABLE, AWS_REGION) come from the platform-endpoints ConfigMap,
+# which the Terraform platform stack creates.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-simulator-config
+  labels:
+    app.kubernetes.io/name: gateway-simulator
+    app.kubernetes.io/part-of: claims
+data:
+  SPRING_PROFILES_ACTIVE: "aws"
+  JWT_JWKS_URI: "http://login.claims.svc.cluster.local/.well-known/jwks.json"

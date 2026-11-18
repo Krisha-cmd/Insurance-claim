@@ -1,0 +1,39 @@
+%% Source: README.md, "Payments Database". Corrected from V1__init.sql: claim_id is unique only among AUTHORIZED/CAPTURED
+%% payments (partial index), and payment_tx_log.payment_id is nullable (a NO vote can log a tx without a payment).
+erDiagram
+    PAYEE_ACCOUNT ||--o{ PAYMENT : "receives"
+    PAYMENT ||--|{ PAYMENT_ATTEMPT : "is tried by"
+    PAYMENT |o--|| PAYMENT_TX_LOG : "is governed by (3PC)"
+    PAYEE_ACCOUNT {
+        uuid id PK
+        uuid user_id "ref: Login DB"
+        varchar account_holder
+        varchar account_no_masked
+        varchar ifsc
+        boolean verified
+    }
+    PAYMENT {
+        uuid id PK
+        uuid claim_id "ref: Claims DB; one live payment per claim"
+        uuid payee_account_id FK
+        decimal amount
+        varchar currency "INR"
+        varchar status "AUTHORIZED | CAPTURED | VOIDED | FAILED"
+        varchar gateway_ref
+        timestamp created_at
+    }
+    PAYMENT_ATTEMPT {
+        bigint id PK
+        uuid payment_id FK
+        varchar action "AUTHORIZE | CAPTURE | VOID"
+        varchar result_code
+        varchar error_message
+        timestamp attempted_at
+    }
+    PAYMENT_TX_LOG {
+        uuid tx_id PK "3PC transaction"
+        uuid payment_id FK "nullable"
+        varchar vote "YES | NO"
+        varchar state "PREPARED | PRECOMMITTED | COMMITTED | ABORTED"
+        timestamp updated_at
+    }

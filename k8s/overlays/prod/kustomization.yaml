@@ -1,0 +1,91 @@
+# prod environment. Two replicas or more; tags are bumped by the manual promotion run of the CI workflow.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: claims
+resources:
+  - ../../base
+labels:
+  - pairs:
+      environment: prod
+    includeSelectors: false
+replicas:
+  - name: login
+    count: 2
+  - name: claim-intake
+    count: 2
+  - name: policy
+    count: 2
+  - name: approval
+    count: 1
+  - name: payment
+    count: 2
+  - name: gateway-simulator
+    count: 2
+  - name: ops-dashboard
+    count: 2
+  - name: frontend
+    count: 2
+patches:
+  # HPA bounds per environment (approval stays at exactly 1: it is the 3PC coordinator).
+  - target: { kind: HorizontalPodAutoscaler, name: login }
+    patch: |-
+      - { op: replace, path: /spec/minReplicas, value: 2 }
+      - { op: replace, path: /spec/maxReplicas, value: 6 }
+  - target: { kind: HorizontalPodAutoscaler, name: claim-intake }
+    patch: |-
+      - { op: replace, path: /spec/minReplicas, value: 2 }
+      - { op: replace, path: /spec/maxReplicas, value: 6 }
+  - target: { kind: HorizontalPodAutoscaler, name: policy }
+    patch: |-
+      - { op: replace, path: /spec/minReplicas, value: 2 }
+      - { op: replace, path: /spec/maxReplicas, value: 6 }
+  - target: { kind: HorizontalPodAutoscaler, name: approval }
+    patch: |-
+      - { op: replace, path: /spec/minReplicas, value: 1 }
+      - { op: replace, path: /spec/maxReplicas, value: 1 }
+  - target: { kind: HorizontalPodAutoscaler, name: payment }
+    patch: |-
+      - { op: replace, path: /spec/minReplicas, value: 2 }
+      - { op: replace, path: /spec/maxReplicas, value: 6 }
+  - target: { kind: HorizontalPodAutoscaler, name: gateway-simulator }
+    patch: |-
+      - { op: replace, path: /spec/minReplicas, value: 2 }
+      - { op: replace, path: /spec/maxReplicas, value: 6 }
+  - target: { kind: HorizontalPodAutoscaler, name: ops-dashboard }
+    patch: |-
+      - { op: replace, path: /spec/minReplicas, value: 2 }
+      - { op: replace, path: /spec/maxReplicas, value: 6 }
+  - target: { kind: HorizontalPodAutoscaler, name: frontend }
+    patch: |-
+      - { op: replace, path: /spec/minReplicas, value: 2 }
+      - { op: replace, path: /spec/maxReplicas, value: 6 }
+  - target: { kind: ConfigMap, name: approval-config }
+    patch: |-
+      - { op: replace, path: /data/CHAOS_ENABLED, value: "false" }
+# Written by CI (.github/workflows/deliver.yml): the account's ECR registry and the short commit id.
+# Until CI has run once, these are placeholders.
+images:
+  - name: login
+    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-prod/login
+    newTag: latest
+  - name: claim-intake
+    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-prod/claim-intake
+    newTag: latest
+  - name: policy
+    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-prod/policy
+    newTag: latest
+  - name: approval
+    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-prod/approval
+    newTag: latest
+  - name: payment
+    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-prod/payment
+    newTag: latest
+  - name: gateway-simulator
+    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-prod/gateway-simulator
+    newTag: latest
+  - name: ops-dashboard
+    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-prod/ops-dashboard
+    newTag: latest
+  - name: frontend
+    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-prod/frontend
+    newTag: latest

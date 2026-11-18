@@ -1,0 +1,16 @@
+# Non-secret settings for ops-dashboard. Shared AWS endpoints (KAFKA_BOOTSTRAP, DOCUMENTS_BUCKET,
+# RESULTS_QUEUE_URL, ANALYTICS_TABLE, AWS_REGION) come from the platform-endpoints ConfigMap,
+# which the Terraform platform stack creates.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ops-dashboard-config
+  labels:
+    app.kubernetes.io/name: ops-dashboard
+    app.kubernetes.io/part-of: claims
+data:
+  SPRING_PROFILES_ACTIVE: "aws"
+  JWT_JWKS_URI: "http://login.claims.svc.cluster.local/.well-known/jwks.json"
+  APPROVAL_URL: "http://approval"
+  PAYMENT_URL: "http://payment"
+  GRPC_CLAIM_TARGET: "dns:///claim-intake:9090"

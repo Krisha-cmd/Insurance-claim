@@ -1,0 +1,57 @@
+%% Source: README.md, "Claim Database". Corrected from V1__init.sql: settlement_participation.claim_id is nullable (abort tombstone).
+erDiagram
+    CLAIM ||--o{ CLAIM_DOCUMENT : "has"
+    CLAIM ||--|{ CLAIM_STATUS_HISTORY : "records"
+    CLAIM ||--o{ ELIGIBILITY_CHECK : "is checked by"
+    CLAIM |o--o{ SETTLEMENT_PARTICIPATION : "takes part in (3PC)"
+    CLAIM {
+        uuid id PK
+        varchar claim_no UK
+        varchar policy_no "ref: Policy DB"
+        uuid member_id "ref: Policy DB"
+        uuid submitted_by "ref: Login DB"
+        varchar hospital_name
+        date admission_date
+        date discharge_date
+        varchar diagnosis
+        varchar treatment_category
+        decimal claimed_amount
+        decimal approved_amount
+        varchar status "SUBMITTED ... SETTLED"
+        bigint version "optimistic lock"
+        timestamp created_at
+    }
+    CLAIM_DOCUMENT {
+        uuid id PK
+        uuid claim_id FK
+        varchar doc_type "DISCHARGE_SUMMARY | BILL | ..."
+        varchar s3_key UK
+        varchar checksum
+        varchar verification_status "PENDING | VERIFIED | REJECTED"
+        varchar rejection_reason
+        timestamp uploaded_at
+    }
+    CLAIM_STATUS_HISTORY {
+        bigint id PK
+        uuid claim_id FK
+        varchar from_status
+        varchar to_status
+        uuid changed_by "ref: Login DB"
+        varchar comment "required for adjuster changes"
+        timestamp changed_at
+    }
+    ELIGIBILITY_CHECK {
+        uuid id PK
+        uuid claim_id FK
+        boolean eligible
+        jsonb rule_results
+        boolean overridden
+        varchar override_comment
+        timestamp checked_at
+    }
+    SETTLEMENT_PARTICIPATION {
+        uuid tx_id PK "3PC transaction"
+        uuid claim_id FK "nullable"
+        varchar state "PREPARED | PRECOMMITTED | COMMITTED | ABORTED"
+        timestamp updated_at
+    }

@@ -1,0 +1,20 @@
+# One ServiceMonitor for all Spring services (kube-prometheus-stack is configured to pick up every
+# ServiceMonitor). The frontend has no /actuator.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: claims-services
+  labels:
+    app.kubernetes.io/part-of: claims
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: claims
+    matchExpressions:
+      - { key: app.kubernetes.io/name, operator: NotIn, values: [frontend] }
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 30s
+      relabelings:
+        - { sourceLabels: [__meta_kubernetes_service_name], targetLabel: service }

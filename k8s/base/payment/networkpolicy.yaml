@@ -1,0 +1,27 @@
+# Who may connect to payment. Everything else is refused by default-deny-ingress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-payment
+  labels:
+    app.kubernetes.io/name: payment
+    app.kubernetes.io/part-of: claims
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: payment
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: { matchLabels: { app.kubernetes.io/name: ops-dashboard } }
+      ports:
+        - port: http
+    # Prometheus (kube-prometheus-stack) scrapes /actuator/prometheus.
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: observability } }
+      ports:
+        - port: http
+    - from:
+        - podSelector: { matchLabels: { app.kubernetes.io/name: approval } }
+      ports:
+        - port: grpc

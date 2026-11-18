@@ -1,0 +1,10 @@
+# The namespace is also created by Terraform (platform stack), which puts the database Secrets, jwt-keys,
+# the IRSA service accounts and platform-endpoints in it. Argo CD must never prune or delete it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: claims
+  labels:
+    app.kubernetes.io/part-of: claims
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false

@@ -1,0 +1,45 @@
+%% Source: GitHub issue #9 body (class diagram). Notation corrected to UML: attributes as name : Type,
+%% parameters as name: Type; see docs/design-document.md, "Diagram sources and corrections".
+classDiagram
+  direction LR
+  class AnalyticsController {
+    +summary() SummaryResponse
+    +series(metric: String, window: String, from: Instant) List~SeriesPoint~
+    +fraudFlags() List~FraudFlagResponse~
+  }
+  class AuditController {
+    +trail(claimId: UUID, user: CurrentUser) List~AuditEventResponse~
+    +search(type: String, from: Instant, to: Instant) List~AuditEventResponse~
+  }
+  class ChaosController {
+    +set(chaosRequest: ChaosRequest) ChaosStatus
+    +get() ChaosStatus
+  }
+  class AnalyticsService
+  class AuditQueryService
+  class ChaosService {
+    +set(chaosRequest: ChaosRequest) ChaosStatus
+    +current() ChaosStatus
+  }
+  class AnalyticsRepository {
+    -table : DynamoDbTable~AnalyticsItem~
+    +queryByPk(pk: String, newestFirst: boolean, limit: int) List~AnalyticsItem~
+    +queryGsi1(gsiPk: String, from: String, to: String) List~AnalyticsItem~
+  }
+  class AnalyticsItem {
+    pk : String
+    sk : String
+    type : String
+    data : Map~String,Object~
+  }
+  class ApprovalChaosClient
+  class PaymentChaosClient
+  AnalyticsController --> AnalyticsService
+  AuditController --> AuditQueryService
+  ChaosController --> ChaosService
+  AnalyticsService --> AnalyticsRepository
+  AuditQueryService --> AnalyticsRepository
+  AnalyticsRepository ..> AnalyticsItem
+  ChaosService --> ApprovalChaosClient
+  ChaosService --> PaymentChaosClient
+  ChaosService --> AuditPublisher

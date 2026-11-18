@@ -1,0 +1,16 @@
+%% Source: new, drawn from backend/participant ThreePhaseParticipant and the participant tables in the claim-intake,
+%% policy and payment READMEs (timeouts). Applies to all three participants.
+stateDiagram-v2
+    direction LR
+    state vote <<choice>>
+    [*] --> vote : CanCommit / prepare()
+    vote --> PREPARED : [checks pass] / reserve, vote YES
+    vote --> ABORTED : [checks fail or error] / vote NO
+    [*] --> ABORTED : Abort before CanCommit / tombstone
+    PREPARED --> PRECOMMITTED : PreCommit
+    PREPARED --> COMMITTED : DoCommit
+    PREPARED --> ABORTED : Abort, or after(5 min) / release
+    PRECOMMITTED --> COMMITTED : DoCommit, or after(2 min) / apply
+    PRECOMMITTED --> ABORTED : Abort / release
+    COMMITTED --> [*]
+    ABORTED --> [*]

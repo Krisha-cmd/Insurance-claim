@@ -1,0 +1,20 @@
+# Who may connect to frontend. Everything else is refused by default-deny-ingress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: claims
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: frontend
+  policyTypes: [Ingress]
+  ingress:
+    # The ALB (target type ip) connects from the public subnets.
+    - from:
+        - ipBlock: { cidr: 10.20.200.0/24 }
+        - ipBlock: { cidr: 10.20.201.0/24 }
+      ports:
+        - port: http

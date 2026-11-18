@@ -1,0 +1,31 @@
+# The prod environment: k8s/overlays/prod, synced automatically into the claims namespace.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: claims-prod
+  namespace: argocd
+spec:
+  project: claims
+  source:
+    repoURL: https://github.com/Krisha-cmd/Insurance-claim.git
+    targetRevision: main
+    path: k8s/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: claims
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true   # do not reset what ignoreDifferences excludes
+    retry:
+      limit: 5
+      backoff: { duration: 10s, factor: 2, maxDuration: 3m }
+  # The HorizontalPodAutoscaler owns the replica count; self-heal must not put it back to the overlay's value.
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas

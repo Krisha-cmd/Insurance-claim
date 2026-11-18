@@ -44,7 +44,7 @@ variable "frontend_origins" {
 variable "ecr_repositories" {
   description = "One ECR repository is created per name."
   type        = list(string)
-  default     = ["login", "claim-intake", "policy", "eligibility", "assessment", "approval", "payment", "ops-dashboard", "frontend"]
+  default     = ["login", "claim-intake", "policy", "eligibility", "assessment", "approval", "payment", "gateway-simulator", "ops-dashboard", "frontend"]
 }
 
 variable "eks_public_access_cidrs" {

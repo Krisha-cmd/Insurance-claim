@@ -1,0 +1,59 @@
+%% Source: GitHub issue #3 body (class diagram). Notation corrected to UML: attributes as name : Type,
+%% parameters as name: Type; see docs/design-document.md, "Diagram sources and corrections".
+classDiagram
+  direction LR
+  class Handler {
+    -parser : S3EventParser
+    -validator : DocumentValidator
+    -publisher : ResultPublisher
+    -s3 : S3Client
+    +handleRequest(sQSEvent: SQSEvent, context: Context) SQSBatchResponse
+  }
+  class S3EventParser {
+    +parse(sqsBody: String) List~ObjectKey~
+  }
+  class ObjectKey {
+    <<record>>
+    bucket : String
+    key : String
+    claimId : UUID
+    docType : String
+    documentId : UUID
+    fileName : String
+  }
+  class DocumentValidator {
+    -rules : List~ValidationRule~
+    +validate(objectKey: ObjectKey, headObjectResponse: HeadObjectResponse) VerificationResult
+  }
+  class ValidationRule {
+    <<interface>>
+    +check(objectKey: ObjectKey, headObjectResponse: HeadObjectResponse) Optional~String~
+  }
+  class ContentTypeRule
+  class SizeRule
+  class KeyFormatRule
+  class NonEmptyRule
+  class ResultPublisher {
+    -sqs : SqsClient
+    +publish(verificationResult: VerificationResult)
+  }
+  class VerificationResult {
+    <<record>>
+    claimId : UUID
+    documentId : UUID
+    docType : String
+    status : VerificationStatus
+    reason : String
+    checkedAt : Instant
+  }
+  Handler --> S3EventParser
+  Handler --> DocumentValidator
+  Handler --> ResultPublisher
+  S3EventParser ..> ObjectKey
+  DocumentValidator o-- ValidationRule
+  ValidationRule <|.. ContentTypeRule
+  ValidationRule <|.. SizeRule
+  ValidationRule <|.. KeyFormatRule
+  ValidationRule <|.. NonEmptyRule
+  DocumentValidator ..> VerificationResult
+  ResultPublisher ..> VerificationResult

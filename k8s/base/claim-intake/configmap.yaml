@@ -1,0 +1,17 @@
+# Non-secret settings for claim-intake. Shared AWS endpoints (KAFKA_BOOTSTRAP, DOCUMENTS_BUCKET,
+# RESULTS_QUEUE_URL, ANALYTICS_TABLE, AWS_REGION) come from the platform-endpoints ConfigMap,
+# which the Terraform platform stack creates.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: claim-intake-config
+  labels:
+    app.kubernetes.io/name: claim-intake
+    app.kubernetes.io/part-of: claims
+data:
+  SPRING_PROFILES_ACTIVE: "aws"
+  JWT_JWKS_URI: "http://login.claims.svc.cluster.local/.well-known/jwks.json"
+  GRPC_PORT: "9090"
+  GRPC_POLICY_TARGET: "dns:///policy:9090"
+  GRPC_ELIGIBILITY_TARGET: "dns:///eligibility:9090"
+  GRPC_ASSESSMENT_TARGET: "dns:///assessment:9090"

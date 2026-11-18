@@ -1,0 +1,97 @@
+%% Source: GitHub issue #2 body (class diagram). Notation corrected to UML: attributes as name : Type,
+%% parameters as name: Type; see docs/design-document.md, "Diagram sources and corrections".
+classDiagram
+  direction LR
+  class ClaimController {
+    +create(createClaimRequest: CreateClaimRequest, user: CurrentUser) ClaimResponse
+    +mine(user: CurrentUser) List~ClaimSummary~
+    +byId(id: UUID, user: CurrentUser) ClaimResponse
+    +status(id: UUID, user: CurrentUser) StatusResponse
+  }
+  class DocumentController {
+    +uploadUrl(claimId: UUID, uploadUrlRequest: UploadUrlRequest, user: CurrentUser) UploadUrlResponse
+    +list(claimId: UUID, user: CurrentUser) List~DocumentResponse~
+  }
+  class AdjusterQueueController {
+    +queue(page: int, size: int) PageResponse
+    +search(claimSearch: ClaimSearch) PageResponse
+  }
+  class ClaimService {
+    +create(createClaimRequest: CreateClaimRequest, user: CurrentUser) Claim
+    +get(id: UUID, user: CurrentUser) Claim
+  }
+  class DocumentService {
+    +createUpload(id: UUID, uploadUrlRequest: UploadUrlRequest) UploadUrlResponse
+    +applyResult(verificationResultMessage: VerificationResultMessage)
+  }
+  class ClaimWorkflowOrchestrator {
+    +onDocumentsVerified(claimId: UUID)
+    -runChecksInParallel(claim: Claim)
+  }
+  class ClaimStateMachine {
+    +transition(claim: Claim, to: ClaimStatus, actor: Actor, comment: String)
+    +isAllowed(from: ClaimStatus, to: ClaimStatus) boolean
+  }
+  class VerificationResultListener {
+    +poll()
+  }
+  class PresignedUrlService {
+    +presignPut(key: String, contentType: String) URL
+  }
+  class PolicyClient
+  class EligibilityClient
+  class AssessmentClient
+  class ClaimGrpcService
+  class ClaimSettlementParticipant
+  class ThreePhaseParticipant~T~ {
+    <<abstract>>
+  }
+  class Claim {
+    id : UUID
+    claimNo : String
+    policyNo : String
+    memberId : UUID
+    submittedBy : UUID
+    hospitalName : String
+    admissionDate : LocalDate
+    dischargeDate : LocalDate
+    diagnosis : String
+    treatmentCategory : String
+    claimedAmount : BigDecimal
+    approvedAmount : BigDecimal
+    status : ClaimStatus
+    version : long
+  }
+  class ClaimDocument {
+    id : UUID
+    docType : DocType
+    s3Key : String
+    verificationStatus : VerificationStatus
+    rejectionReason : String
+  }
+  class ClaimStatusHistory
+  class EligibilityCheck {
+    eligible : boolean
+    ruleResultsJson : String
+    overridden : boolean
+    overrideComment : String
+  }
+  class SettlementParticipation
+  ClaimController --> ClaimService
+  DocumentController --> DocumentService
+  DocumentService --> PresignedUrlService
+  VerificationResultListener --> DocumentService
+  DocumentService --> ClaimWorkflowOrchestrator
+  ClaimWorkflowOrchestrator --> EligibilityClient
+  ClaimWorkflowOrchestrator --> AssessmentClient
+  ClaimWorkflowOrchestrator --> ClaimStateMachine
+  ClaimService --> PolicyClient
+  ClaimService --> ClaimStateMachine
+  ClaimSettlementParticipant --|> ThreePhaseParticipant
+  ClaimSettlementParticipant --> ClaimStateMachine
+  ClaimGrpcService --> ClaimService
+  Claim "1" *-- "0..*" ClaimDocument
+  Claim "1" *-- "1..*" ClaimStatusHistory
+  Claim "1" *-- "0..*" EligibilityCheck
+  Claim "1" --> "0..*" SettlementParticipation
+  SettlementParticipation --|> ParticipantTx

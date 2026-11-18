@@ -1,0 +1,45 @@
+%% Source: backend/services/claim-intake/README.md "Workflow" (also in issue/PR #12). UML corrections: calls to other
+%% services are messages to their own lifelines (Policy, SQS) instead of self-calls; S3 → SQS → Lambda → SQS are
+%% asynchronous messages (open arrowhead), not replies; replies are dashed.
+sequenceDiagram
+    autonumber
+    participant B as :Browser
+    participant I as :Claim Intake
+    participant P as :Policy
+    participant S3 as :S3 documents
+    participant UQ as :SQS doc-upload-events
+    participant L as :Document Verification (Lambda)
+    participant RQ as :SQS doc-verification-results
+    participant E as :Eligibility
+    participant A as :Assessment
+
+    B->>I: POST /api/claims
+    I->>P: ValidateMember(policyNo, memberId)
+    P-->>I: ValidateMemberReply
+    I->>I: create claim, SUBMITTED → DOCS_PENDING
+    I-->>B: 201 ClaimResponse
+    loop each required document (4)
+        B->>I: POST /api/claims/{id}/documents/upload-url
+        I-->>B: pre-signed PUT URL (10 min)
+        B->>S3: PUT file
+        S3-)UQ: s3:ObjectCreated (claims/ prefix)
+        UQ-)L: batch of up to 5 messages
+        L->>S3: HeadObject
+        S3-->>L: Content-Type, size, ETag
+        L-)RQ: VerificationResult (VERIFIED | REJECTED)
+    end
+    loop long poll (10 messages, 20 s)
+        I->>RQ: ReceiveMessage
+        RQ-->>I: results
+        I->>I: update document (idempotent), commit
+        I->>RQ: DeleteMessage
+    end
+    Note over I: every required type VERIFIED → DOCS_VERIFIED
+    par 5 s deadline
+        I->>E: Check(claimId)
+        E-->>I: CheckEligibilityReply
+    and 5 s deadline
+        I->>A: Assess(claimId)
+        A-->>I: AssessReply
+    end
+    I->>I: ELIGIBILITY_CHECKED → ASSESSED → UNDER_REVIEW

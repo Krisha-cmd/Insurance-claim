@@ -1,0 +1,31 @@
+%% Source: new, drawn from backend/services/approval/src/main/resources/db/migration/V1__init.sql (no ER diagram existed).
+erDiagram
+    APPROVAL_DECISION ||--o{ SETTLEMENT_TX : "is settled by (one row per attempt)"
+    SETTLEMENT_TX ||--|{ SETTLEMENT_TX_PARTICIPANT : "tracks"
+    APPROVAL_DECISION {
+        uuid id PK
+        uuid claim_id UK "ref: Claims DB"
+        varchar decision "APPROVED | REJECTED"
+        decimal amount "NULL when REJECTED"
+        varchar comment
+        uuid adjuster_id "ref: Login DB"
+        timestamp decided_at
+    }
+    SETTLEMENT_TX {
+        uuid tx_id PK
+        uuid claim_id FK "UK with attempt; one unfinished per claim"
+        decimal amount
+        varchar state "WAITING_VOTES | PRECOMMITTING | COMMITTING | COMMITTED | ABORTING | ABORTED"
+        int attempt
+        timestamp created_at
+        timestamp updated_at
+        bigint version "optimistic lock"
+    }
+    SETTLEMENT_TX_PARTICIPANT {
+        uuid tx_id PK, FK
+        varchar participant PK
+        varchar vote "YES | NO | NULL"
+        varchar state "UNKNOWN | PREPARED | PRECOMMITTED | COMMITTED | ABORTED"
+        timestamp last_contact_at
+        varchar error
+    }
