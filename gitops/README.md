@@ -103,5 +103,3 @@ Find what is running: `git log --oneline -- k8s/overlays/<env>/kustomization.yam
 - **Placeholder registry.** The overlays in Git start with `account-id.dkr.ecr.ap-south-1.amazonaws.com`.
   The first CI run replaces it with the real registry from `amazon-ecr-login`; no account ID is written
   by hand.
-- **Eligibility** has manifests in `k8s/base` but is not listed in the base kustomization until the
-  service exists (issue #4).

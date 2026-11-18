@@ -36,6 +36,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -196,9 +197,15 @@ public class ClaimService {
     /** RecordEligibility from the Eligibility service (e.g. an adjuster override). */
     public ClaimStatus recordEligibility(UUID claimId, boolean eligible, String rulesJson, boolean overridden,
                                          String overrideComment, Actor actor) {
+        return recordEligibility(claimId, eligible, rulesJson, overridden, overrideComment, null, actor);
+    }
+
+    /** RecordEligibility from the Eligibility service, e.g. an adjuster's override with its reason. */
+    public ClaimStatus recordEligibility(UUID claimId, boolean eligible, String rulesJson, boolean overridden,
+                                         String overrideComment, String overrideReason, Actor actor) {
         return tx.execute(status -> {
             Claim c = claims.findById(claimId).orElseThrow(() -> notFound(claimId));
-            recordEligibility(c, eligible, rulesJson, overridden, overrideComment, actor);
+            recordEligibility(c, eligible, rulesJson, overridden, overrideComment, overrideReason, actor);
             return c.getStatus();
         });
     }
@@ -206,10 +213,20 @@ public class ClaimService {
     /** In the caller's transaction (the workflow). */
     public void recordEligibility(Claim c, boolean eligible, String rulesJson, boolean overridden,
                                   String overrideComment, Actor actor) {
+        recordEligibility(c, eligible, rulesJson, overridden, overrideComment, null, actor);
+    }
+
+    public void recordEligibility(Claim c, boolean eligible, String rulesJson, boolean overridden,
+                                  String overrideComment, String overrideReason, Actor actor) {
         eligibilityChecks.save(new EligibilityCheck(c.getId(), eligible, rulesJson, overridden,
-                blankToNull(overrideComment), actor, clock.instant()));
+                blankToNull(overrideComment), blankToNull(overrideReason), actor, clock.instant()));
         c.recordEligibility(eligible);
         claims.save(c);
+    }
+
+    /** The latest eligibility result (automatic or overridden), for ClaimService.GetClaim. */
+    public Optional<EligibilityCheck> latestEligibility(UUID claimId) {
+        return eligibilityChecks.findFirstByClaimIdOrderByCheckedAtDesc(claimId);
     }
 
     /** RecordAssessment from the Assessment service (e.g. an adjuster adjustment). */
