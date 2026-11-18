@@ -6,20 +6,23 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
+        <module name="functions-document-verification" />
+        <module name="services-payment" />
         <module name="services-approval" />
+        <module name="services-assessment" />
         <module name="common" />
+        <module name="services-ops-dashboard" />
+        <module name="services-claim-intake" />
         <module name="proto" />
         <module name="services-login" />
+        <module name="services-policy" />
+        <module name="services-gateway-simulator" />
+        <module name="participant" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="analytics-audit-flink" target="21" />
-      <module name="functions-document-verification" target="21" />
-      <module name="services-assessment" target="21" />
-      <module name="services-claim-intake" target="21" />
       <module name="services-eligibility" target="21" />
-      <module name="services-payment" target="21" />
-      <module name="services-policy" target="21" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
@@ -27,12 +30,15 @@
       <module name="analytics-audit-flink" options="-parameters" />
       <module name="common" options="-parameters" />
       <module name="functions-document-verification" options="-parameters" />
+      <module name="participant" options="-parameters" />
       <module name="proto" options="-parameters" />
       <module name="services-approval" options="-parameters" />
       <module name="services-assessment" options="-parameters" />
       <module name="services-claim-intake" options="-parameters" />
       <module name="services-eligibility" options="-parameters" />
+      <module name="services-gateway-simulator" options="-parameters" />
       <module name="services-login" options="-parameters" />
+      <module name="services-ops-dashboard" options="-parameters" />
       <module name="services-payment" options="-parameters" />
       <module name="services-policy" options="-parameters" />
     </option>
