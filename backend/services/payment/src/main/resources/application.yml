@@ -1,0 +1,88 @@
+# On EKS: `payment-db` Secret (SPRING_DATASOURCE_*), `platform-endpoints` ConfigMap (KAFKA_BOOTSTRAP) and the
+# Deployment (GATEWAY_BASE_URL, GRPC_CLAIM_TARGET). Payment has no public REST API.
+
+spring:
+  application:
+    name: payment
+  profiles:
+    default: local
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/payment}
+    username: ${SPRING_DATASOURCE_USERNAME:payment}
+    password: ${SPRING_DATASOURCE_PASSWORD:payment}
+    hikari:
+      maximum-pool-size: 15
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    locations: classpath:db/migration
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        max.block.ms: 5000
+        delivery.timeout.ms: 15000
+        request.timeout.ms: 5000
+        linger.ms: 5
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  error:
+    whitelabel:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+claims:
+  events:
+    topic: claim-events
+    kafka-bootstrap: ${KAFKA_BOOTSTRAP:}
+
+  grpc:
+    server:
+      port: ${GRPC_PORT:9090}
+      in-process-name: ""
+    # Claim Intake's ClaimService: CanCommit only carries the claim id, so prepare looks up who filed it.
+    claim-target: ${GRPC_CLAIM_TARGET:dns:///claim-intake:9090}
+
+  payment:
+    currency: INR
+    claim-lookup-timeout: 3s
+    gateway:
+      base-url: ${GATEWAY_BASE_URL:http://gateway-simulator}
+      connect-timeout: 1s
+      read-timeout: 3s          # a gateway slower than this counts as failed
+      capture-attempts: 3       # in DoCommit; after that the recovery sweep keeps trying
+      capture-backoff: 200ms    # doubles after each failed attempt
+    # Captures (after commit) and voids (after abort) that did not get through are retried this often.
+    recovery-interval: PT30S
+    participant:
+      prepare-timeout: 5m
+      precommit-timeout: 2m
+      sweep-interval: PT15S

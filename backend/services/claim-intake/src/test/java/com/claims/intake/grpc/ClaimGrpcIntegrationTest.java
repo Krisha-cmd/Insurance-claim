@@ -104,6 +104,7 @@ class ClaimGrpcIntegrationTest extends IntakeTestBase {
         assertThat(details.getProposedAmount()).isEqualTo("4200.50");
         assertThat(details.getClaimedAmount()).isEqualTo("5000.00");
         assertThat(details.getStatus()).isEqualTo(com.claims.proto.claim.v1.ClaimStatus.UNDER_REVIEW);
+        assertThat(details.getSubmittedBy()).isEqualTo(c.getSubmittedBy().toString());
     }
 
     @Test

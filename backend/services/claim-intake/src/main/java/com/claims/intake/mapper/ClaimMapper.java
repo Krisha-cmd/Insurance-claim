@@ -116,6 +116,7 @@ public class ClaimMapper {
                 .setApprovedAmount(text(c.getApprovedAmount()))
                 .setStatus(com.claims.proto.claim.v1.ClaimStatus.valueOf(c.getStatus().name()))
                 .setCurrency(currency)
+                .setSubmittedBy(c.getSubmittedBy().toString())
                 .build();
     }
 
