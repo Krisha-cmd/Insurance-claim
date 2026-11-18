@@ -1,0 +1,61 @@
+// Three-phase commit participant. Implemented by Claim Intake, Policy and Payment;
+// called by the Approval service (the coordinator).
+//
+// Participant rules (each participant keeps its own tx log keyed by tx_id):
+//   - Every call is idempotent: repeating it returns the current state.
+//   - PREPARED (voted YES) and no PreCommit before its timeout   -> abort locally.
+//   - PRECOMMITTED and no DoCommit/Abort before its timeout      -> commit locally.
+//   - Abort after COMMITTED is refused with FAILED_PRECONDITION (cannot happen with a correct coordinator).
+syntax = "proto3";
+
+package claims.settlement.v1;
+
+option java_multiple_files = true;
+option java_package = "com.claims.proto.settlement.v1";
+option java_outer_classname = "ParticipantProto";
+
+service SettlementParticipant {
+  // Phase 1: can you commit this settlement? Reserve what you need and vote.
+  rpc CanCommit(CanCommitRequest) returns (VoteReply);
+  // Phase 2: everyone voted YES. Get ready to commit and acknowledge.
+  rpc PreCommit(TxRequest) returns (AckReply);
+  // Phase 3: commit and acknowledge.
+  rpc DoCommit(TxRequest) returns (AckReply);
+  // Release anything reserved for this transaction.
+  rpc Abort(TxRequest) returns (AckReply);
+}
+
+message CanCommitRequest {
+  string tx_id = 1;      // UUID
+  string claim_id = 2;   // UUID
+  string amount = 3;     // decimal as text, e.g. "67500.00"
+  string currency = 4;   // "INR"
+  int32 attempt = 5;     // 1 for the first settlement, +1 per retry
+}
+
+enum Vote {
+  VOTE_UNSPECIFIED = 0;
+  VOTE_YES = 1;
+  VOTE_NO = 2;
+}
+
+message VoteReply {
+  Vote vote = 1;
+  string reason = 2;     // why the vote is NO, shown to the adjuster
+}
+
+message TxRequest {
+  string tx_id = 1;
+}
+
+enum ParticipantState {
+  PARTICIPANT_STATE_UNSPECIFIED = 0;
+  PREPARED = 1;
+  PRECOMMITTED = 2;
+  COMMITTED = 3;
+  ABORTED = 4;
+}
+
+message AckReply {
+  ParticipantState state = 1;
+}

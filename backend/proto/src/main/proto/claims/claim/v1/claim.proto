@@ -1,0 +1,50 @@
+// Implemented by the Claim Intake service, which owns the claim's status.
+syntax = "proto3";
+
+package claims.claim.v1;
+
+option java_multiple_files = true;
+option java_package = "com.claims.proto.claim.v1";
+option java_outer_classname = "ClaimProto";
+
+service ClaimService {
+  // Moves the claim to `status`. Idempotent: if the claim already has that status it returns OK
+  // without a change. NOT_FOUND for an unknown claim, FAILED_PRECONDITION for a disallowed transition.
+  rpc UpdateStatus(UpdateStatusRequest) returns (UpdateStatusReply);
+}
+
+// Same values as CLAIM_STATUS in frontend/src/lib/status.js.
+enum ClaimStatus {
+  CLAIM_STATUS_UNSPECIFIED = 0;
+  SUBMITTED = 1;
+  DOCS_PENDING = 2;
+  DOCS_VERIFIED = 3;
+  ELIGIBILITY_CHECKED = 4;
+  ASSESSED = 5;
+  UNDER_REVIEW = 6;
+  APPROVED = 7;
+  REJECTED = 8;
+  SETTLING = 9;
+  SETTLED = 10;
+  SETTLEMENT_FAILED = 11;
+}
+
+message Actor {
+  string id = 1;
+  string role = 2;       // ADJUSTER, POLICYHOLDER or SYSTEM
+  string name = 3;
+}
+
+message UpdateStatusRequest {
+  string claim_id = 1;        // UUID
+  ClaimStatus status = 2;
+  string reason = 3;          // e.g. the adjuster's comment, or why settlement failed
+  Actor actor = 4;
+  string idempotency_key = 5; // e.g. "<txId>:SETTLEMENT_FAILED"
+}
+
+message UpdateStatusReply {
+  ClaimStatus previous_status = 1;
+  ClaimStatus status = 2;
+  bool changed = 3;           // false when the claim already had this status
+}
