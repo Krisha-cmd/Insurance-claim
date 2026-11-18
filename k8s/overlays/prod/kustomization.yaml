@@ -15,6 +15,8 @@ replicas:
     count: 2
   - name: policy
     count: 2
+  - name: assessment
+    count: 2
   - name: approval
     count: 1
   - name: payment
@@ -36,6 +38,10 @@ patches:
       - { op: replace, path: /spec/minReplicas, value: 2 }
       - { op: replace, path: /spec/maxReplicas, value: 6 }
   - target: { kind: HorizontalPodAutoscaler, name: policy }
+    patch: |-
+      - { op: replace, path: /spec/minReplicas, value: 2 }
+      - { op: replace, path: /spec/maxReplicas, value: 6 }
+  - target: { kind: HorizontalPodAutoscaler, name: assessment }
     patch: |-
       - { op: replace, path: /spec/minReplicas, value: 2 }
       - { op: replace, path: /spec/maxReplicas, value: 6 }
@@ -73,6 +79,9 @@ images:
     newTag: latest
   - name: policy
     newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-prod/policy
+    newTag: latest
+  - name: assessment
+    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-prod/assessment
     newTag: latest
   - name: approval
     newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-prod/approval

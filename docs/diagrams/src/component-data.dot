@@ -8,10 +8,10 @@ digraph G {
   spa    [label=<<font point-size="8">«component»</font><br/><b>Claims portal</b>>];
   intake [label=<<font point-size="8">«component»</font><br/><b>Claim Intake</b>>];
   lambda [label=<<font point-size="8">«component» «AWS Lambda»</font><br/><b>Document Verification</b>>];
-  pubs   [label=<<font point-size="8">«component»</font><br/><b>Policy, Approval, Payment,<br/>Ops Dashboard</b>>];
+  pubs   [label=<<font point-size="8">«component»</font><br/><b>Policy, Assessment, Approval,<br/>Payment, Ops Dashboard</b>>];
   flink  [label=<<font point-size="8">«component» «Flink on EMR»</font><br/><b>Audit</b>>];
   ops    [label=<<font point-size="8">«component»</font><br/><b>Ops Dashboard</b>>];
-  svcdb  [label=<<font point-size="8">«component»</font><br/><b>Login, Policy, Claim Intake,<br/>Approval, Payment</b>>];
+  svcdb  [label=<<font point-size="8">«component»</font><br/><b>Login, Policy, Claim Intake,<br/>Assessment, Approval, Payment</b>>];
   node [style="filled", fillcolor="#ffffff"];
   s3  [label=<<font point-size="8">«bucket» S3</font><br/>documents>];
   q1  [label=<<font point-size="8">«queue» SQS (+DLQ)</font><br/>doc-upload-events>];
@@ -19,7 +19,7 @@ digraph G {
   kev [label=<<font point-size="8">«topic» MSK</font><br/>claim-events>];
   kan [label=<<font point-size="8">«topic» MSK</font><br/>claim-analytics>];
   ddb [label=<<font point-size="8">«table» DynamoDB</font><br/>claims-analytics>];
-  rds [label=<<font point-size="8">«database» RDS PostgreSQL 16</font><br/>one database per service:<br/>login, policy, claims, approval, payment>];
+  rds [label=<<font point-size="8">«database» RDS PostgreSQL 16</font><br/>one database per service:<br/>login, policy, claims, assessment,<br/>approval, payment>];
   spa -> s3 [label="PUT (pre-signed)"];
   intake -> s3 [label="presign"];
   s3 -> q1 [label="ObjectCreated"];
