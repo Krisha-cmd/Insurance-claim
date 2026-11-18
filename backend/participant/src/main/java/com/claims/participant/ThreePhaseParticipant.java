@@ -3,6 +3,7 @@ package com.claims.participant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.transaction.support.TransactionOperations;
 
 import java.math.BigDecimal;
@@ -10,6 +11,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * The participant side of three-phase commit. Subclasses supply the business effect; this class owns the
@@ -30,6 +32,7 @@ import java.util.UUID;
  *   <li>CanCommit after an Abort (a tombstone) votes NO.</li>
  *   <li>DoCommit on an ABORTED tx and Abort on a COMMITTED tx are refused ({@link IllegalTxStateException}).</li>
  *   <li>PreCommit/DoCommit for an unknown tx: {@link TxNotFoundException}.</li>
+ *   <li>An operation that loses an optimistic-lock race is retried (up to 3 times) on fresh data.</li>
  * </ul>
  */
 public abstract class ThreePhaseParticipant<T extends ParticipantTx> {
@@ -83,6 +86,15 @@ public abstract class ThreePhaseParticipant<T extends ParticipantTx> {
     }
 
     public VoteResult canCommit(UUID txId, UUID claimId, BigDecimal amount, int attempt) {
+        try {
+            return retrying(() -> canCommitOnce(txId, claimId, amount, attempt));
+        } catch (OptimisticLockingFailureException busy) {
+            return voteNo(txId, claimId, amount, attempt,
+                    "Could not prepare: the data kept changing concurrently (" + MAX_ATTEMPTS + " attempts)", busy);
+        }
+    }
+
+    private VoteResult canCommitOnce(UUID txId, UUID claimId, BigDecimal amount, int attempt) {
         Optional<T> existing = store.findTx(txId);
         if (existing.isPresent()) {
             return voteOf(existing.get());
@@ -102,21 +114,27 @@ public abstract class ThreePhaseParticipant<T extends ParticipantTx> {
         } catch (DataIntegrityViolationException duplicate) {
             // A concurrent duplicate CanCommit won the insert; answer what it decided.
             return store.findTx(txId).map(this::voteOf).orElseThrow(() -> duplicate);
+        } catch (OptimisticLockingFailureException conflict) {
+            throw conflict; // retried by canCommit()
         } catch (RuntimeException e) {
             String reason = "Could not prepare: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
-            log.warn("[{}] tx {} claim {}: prepare failed, voting NO", name, txId, claimId, e);
-            tx.executeWithoutResult(status -> {
-                T t = fresh(txId, claimId, amount, attempt);
-                t.votedNo(reason, now());
-                store.saveTx(t);
-                onTransition(t, null);
-            });
-            return VoteResult.no(reason);
+            return voteNo(txId, claimId, amount, attempt, reason, e);
         }
     }
 
+    private VoteResult voteNo(UUID txId, UUID claimId, BigDecimal amount, int attempt, String reason, Exception cause) {
+        log.warn("[{}] tx {} claim {}: prepare failed, voting NO", name, txId, claimId, cause);
+        tx.executeWithoutResult(status -> {
+            T t = fresh(txId, claimId, amount, attempt);
+            t.votedNo(reason, now());
+            store.saveTx(t);
+            onTransition(t, null);
+        });
+        return VoteResult.no(reason);
+    }
+
     public ParticipantTxState preCommit(UUID txId) {
-        return tx.execute(status -> {
+        return retrying(() -> tx.execute(status -> {
             T t = load(txId);
             if (t.getState() == ParticipantTxState.PREPARED) {
                 t.move(ParticipantTxState.PRECOMMITTED, null, now());
@@ -124,11 +142,11 @@ public abstract class ThreePhaseParticipant<T extends ParticipantTx> {
                 save(t, ParticipantTxState.PREPARED);
             }
             return t.getState(); // PRECOMMITTED/COMMITTED: repeat; ABORTED: the coordinator sees no ack
-        });
+        }));
     }
 
     public ParticipantTxState doCommit(UUID txId) {
-        return tx.execute(status -> {
+        return retrying(() -> tx.execute(status -> {
             T t = load(txId);
             switch (t.getState()) {
                 case PREPARED, PRECOMMITTED -> commit(t, "DoCommit");
@@ -137,11 +155,11 @@ public abstract class ThreePhaseParticipant<T extends ParticipantTx> {
                         + (t.getReason() != null ? ": " + t.getReason() : ""));
             }
             return t.getState();
-        });
+        }));
     }
 
     public ParticipantTxState abort(UUID txId) {
-        return tx.execute(status -> {
+        return retrying(() -> tx.execute(status -> {
             Optional<T> found = store.findTx(txId);
             if (found.isEmpty()) {
                 // Abort overtook CanCommit: leave a tombstone so a late CanCommit votes NO.
@@ -158,7 +176,7 @@ public abstract class ThreePhaseParticipant<T extends ParticipantTx> {
                 case COMMITTED -> throw new IllegalTxStateException("Settlement " + txId + " is already COMMITTED");
             }
             return t.getState();
-        });
+        }));
     }
 
     /**
@@ -185,9 +203,26 @@ public abstract class ThreePhaseParticipant<T extends ParticipantTx> {
 
     // ------------------------------------------------------------------ internals
 
+    static final int MAX_ATTEMPTS = 3;
+
+    /**
+     * Repeats an operation that lost an optimistic-lock race (e.g. two settlements reserving against the same
+     * balance row): the retry re-reads the data, so the loser decides on what the winner committed.
+     */
+    private <R> R retrying(Supplier<R> op) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return op.get();
+            } catch (OptimisticLockingFailureException e) {
+                if (attempt >= MAX_ATTEMPTS) throw e;
+                log.debug("[{}] optimistic-lock conflict, retrying ({}/{})", name, attempt, MAX_ATTEMPTS);
+            }
+        }
+    }
+
     private int timeout(UUID txId, ParticipantTxState expected) {
         try {
-            Boolean done = tx.execute(status -> {
+            Boolean done = retrying(() -> tx.execute(status -> {
                 T t = load(txId);
                 if (t.getState() != expected) return false; // changed meanwhile
                 if (expected == ParticipantTxState.PREPARED) {
@@ -196,7 +231,7 @@ public abstract class ThreePhaseParticipant<T extends ParticipantTx> {
                     commit(t, "No DoCommit within " + timeouts.precommitTimeout() + " (participant timeout)");
                 }
                 return true;
-            });
+            }));
             return Boolean.TRUE.equals(done) ? 1 : 0;
         } catch (RuntimeException e) {
             log.warn("[{}] timeout handling for tx {} failed; will retry", name, txId, e);
