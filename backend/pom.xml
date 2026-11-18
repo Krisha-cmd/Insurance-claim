@@ -30,9 +30,9 @@
         <module>services/payment</module>
         <module>services/gateway-simulator</module>
         <module>services/ops-dashboard</module>
+        <module>services/assessment</module>
         <!-- Enabled one by one as each service is built:
         <module>services/eligibility</module>
-        <module>services/assessment</module>
         <module>analytics/audit-flink</module>
         -->
     </modules>
