@@ -1,15 +1,17 @@
 # Backend
 
-Java 21 · Spring Boot 3.3 · Maven multi-module. One module per service. Only `common` and
-`services/login` are active in the parent [`pom.xml`](pom.xml); the others are commented out and
-get switched on one at a time as they are built.
+Java 21 · Spring Boot 3.3 · Maven multi-module. One module per service. Active in the parent
+[`pom.xml`](pom.xml): `proto`, `common`, `services/login` and `services/approval`; the others are
+commented out and get switched on one at a time as they are built.
 
 ```
 backend/
 ├── pom.xml                 parent: Spring Boot parent, Java 21, Jib + git-commit-id plugin config
 ├── docker-compose.yml      local Postgres 16 (database/user/password: login/login/login)
-├── common/                 ApiError, ApiException, GlobalExceptionHandler base, JSON logging (logback-spring.xml)
-└── services/login/         login service: /api/auth/*, /.well-known/jwks.json
+├── proto/                  gRPC contracts (.proto) → generated Java stubs
+├── common/                 ApiError, ApiException, GlobalExceptionHandler base, ClaimEvent, JSON logging
+├── services/login/         login service: /api/auth/*, /.well-known/jwks.json
+└── services/approval/      decisions + 3PC settlement coordinator (see its README)
 ```
 
 ## Prerequisites

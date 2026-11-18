@@ -1,0 +1,114 @@
+# All settings can be overridden by environment variables. On EKS: the `approval-db` Secret
+# (SPRING_DATASOURCE_*), the `platform-endpoints` ConfigMap (KAFKA_BOOTSTRAP) and the Deployment
+# (GRPC_*_TARGET, JWT_JWKS_URI).
+
+spring:
+  application:
+    name: approval
+  profiles:
+    default: local
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/approval}
+    username: ${SPRING_DATASOURCE_USERNAME:approval}
+    password: ${SPRING_DATASOURCE_PASSWORD:approval}
+    hikari:
+      maximum-pool-size: 10
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    locations: classpath:db/migration
+
+  jackson:
+    default-property-inclusion: always
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Login service's public keys. In the cluster: http://login.claims.svc.cluster.local/.well-known/jwks.json
+          jwk-set-uri: ${JWT_JWKS_URI:http://localhost:8080/.well-known/jwks.json}
+
+  kafka:
+    # Empty when MSK is disabled; events are then only logged (see EventsConfig).
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        max.block.ms: 5000
+        delivery.timeout.ms: 15000
+        request.timeout.ms: 5000
+        linger.ms: 5
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  error:
+    whitelabel:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+claims:
+  jwt:
+    issuer: claims-login
+
+  events:
+    topic: claim-events
+    # Kafka is used only when this is non-empty.
+    kafka-bootstrap: ${KAFKA_BOOTSTRAP:}
+
+  approval:
+    assessment-target: ${GRPC_ASSESSMENT_TARGET:dns:///assessment:9090}
+    # Claim Intake owns claim status (ClaimService), on the same port as its participant service.
+    claim-target: ${GRPC_CLAIM_TARGET:${GRPC_INTAKE_TARGET:dns:///claim-intake:9090}}
+    call-timeout: 3s
+    currency: INR
+    # POST /internal/chaos. Not routed by the ingress; set CHAOS_ENABLED=false to remove it entirely.
+    chaos-enabled: ${CHAOS_ENABLED:true}
+
+  coordinator:
+    phase-timeout: 5s
+    # ISO-8601, read by @Scheduled.
+    recovery-interval: PT30S
+    # A non-final tx is only recovered once it has not been touched for this long,
+    # so the sweep never interferes with a settlement that is still running.
+    recovery-stale-after: 15s
+    participants:
+      - name: claim-intake
+        target: ${GRPC_INTAKE_TARGET:dns:///claim-intake:9090}
+      - name: policy
+        target: ${GRPC_POLICY_TARGET:dns:///policy:9090}
+      - name: payment
+        target: ${GRPC_PAYMENT_TARGET:dns:///payment:9090}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: aws
+
+server:
+  forward-headers-strategy: native
