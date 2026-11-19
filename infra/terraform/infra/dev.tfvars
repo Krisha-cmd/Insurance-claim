@@ -18,19 +18,20 @@ ecr_repositories = [                                          # one ECR reposito
 
 # ---------------------------------------------------------------- sizing
 cluster_version           = "1.33"                                                                              # EKS Kubernetes version (must be in standard support)
-node_instance_types       = ["t3.medium"]                                                                       # EKS worker instance types
+node_instance_types       = ["t3.large"]                                                                        # EKS worker instance types (2 vCPU, 8 GiB)
 node_min_size             = 2                                                                                   # EKS minimum nodes
 node_desired_size         = 2                                                                                   # EKS nodes at creation
-node_max_size             = 4                                                                                   # EKS maximum nodes
+node_max_size             = 2                                                                                   # EKS maximum nodes (2 x 2 = 4 vCPU of the quota)
 rds_instance_class        = "db.t4g.micro"                                                                      # PostgreSQL instance class
 rds_allocated_storage     = 20                                                                                  # PostgreSQL storage, GiB
 msk_broker_instance_type  = "kafka.t3.small"                                                                    # Kafka broker type
 msk_broker_count          = 2                                                                                   # Kafka brokers (multiple of az_count)
 msk_broker_volume_size    = 10                                                                                  # Kafka EBS per broker, GiB
 emr_release_label         = "emr-7.6.0"                                                                         # EMR release (ships Flink 1.20)
-emr_primary_instance_type = "m5.xlarge"                                                                         # EMR primary node
-emr_core_instance_type    = "m5.xlarge"                                                                         # EMR core nodes
-emr_core_instance_count   = 1                                                                                   # number of EMR core nodes
+emr_primary_instance_type = "m5.xlarge"                                                                         # EMR primary node (4 vCPU of the quota; runs Flink itself)
+emr_core_instance_type    = "m5.xlarge"                                                                         # EMR core nodes (unused while the count is 0)
+emr_core_instance_count   = 0                                                                                   # 0 = single-node EMR cluster
+ec2_vcpu_quota            = 8                                                                                   # account vCPU quota for EKS + EMR nodes; plan fails above it
 emr_idle_timeout_seconds  = 7200                                                                                # EMR shuts down after 2 h idle
 lambda_timeout_seconds    = 60                                                                                  # Lambda timeout (SQS visibility = 6x)
 lambda_jar_path           = "../../../backend/functions/document-verification/target/document-verification.jar" # built Lambda jar
@@ -44,5 +45,5 @@ enable_lambda   = true # Document Verification; set false until the jar is built
 enable_dynamodb = true # analytics table + ops-dashboard IRSA role
 
 # ---------------------------------------------------------------- GitOps / CI
-enable_github_oidc = false # create GitHub Actions OIDC + ECR push role
-github_repository  = ""    # "owner/repo" allowed to assume that role
+enable_github_oidc = true                         # create GitHub Actions OIDC + ECR push role
+github_repository  = "Krisha-cmd/Insurance-claim" # "owner/repo" allowed to assume that role

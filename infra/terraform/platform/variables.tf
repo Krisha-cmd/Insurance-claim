@@ -129,3 +129,9 @@ variable "loki_storage_size" {
   type        = string
   default     = "10Gi"
 }
+
+variable "local_chart_dir" {
+  description = "Folder (relative to this stack) holding the Helm chart .tgz files, for networks that cannot download from GitHub releases. Empty = download from the chart repositories. See README: 'Charts from a local folder'."
+  type        = string
+  default     = ""
+}

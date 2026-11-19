@@ -38,9 +38,14 @@ variable "core_instance_type" {
 }
 
 variable "core_instance_count" {
-  description = "Number of core nodes."
+  description = "Number of core nodes. 0 makes a single-node cluster: YARN and Flink run on the primary."
   type        = number
   default     = 1
+
+  validation {
+    condition     = var.core_instance_count >= 0
+    error_message = "core_instance_count must be 0 or more."
+  }
 }
 
 variable "core_ebs_size" {

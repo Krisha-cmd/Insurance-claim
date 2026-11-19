@@ -18,6 +18,14 @@ management:
     health:
       probes:
         enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      # Histogram buckets, so Grafana can compute p50/p95/p99 across pods (histogram_quantile).
+      percentiles-histogram:
+        http.server.requests: true
+        grpc.server.processing.duration: true
 
 gateway:
   # Upper bound for SLOW, so a typo cannot hang a request for hours.

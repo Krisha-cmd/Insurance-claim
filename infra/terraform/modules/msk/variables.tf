@@ -21,7 +21,7 @@ variable "allowed_security_groups" {
 variable "kafka_version" {
   description = "Apache Kafka version."
   type        = string
-  default     = "3.6.0"
+  default     = "3.8.x" # MSK names 3.7+ as "3.N.x" (aws kafka list-kafka-versions)
 }
 
 variable "broker_instance_type" {

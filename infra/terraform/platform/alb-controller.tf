@@ -29,8 +29,8 @@ resource "helm_release" "aws_load_balancer_controller" {
 # Metrics Server feeds CPU/memory to the HorizontalPodAutoscalers (and `kubectl top`).
 resource "helm_release" "metrics_server" {
   name       = "metrics-server"
-  repository = "https://kubernetes-sigs.github.io/metrics-server/"
-  chart      = "metrics-server"
+  repository = local.use_local_charts ? null : "https://kubernetes-sigs.github.io/metrics-server/"
+  chart      = local.use_local_charts ? "${local.chart_dir}/metrics-server-${local.charts.metrics_server}.tgz" : "metrics-server"
   version    = local.charts.metrics_server
   namespace  = "kube-system"
   wait       = true

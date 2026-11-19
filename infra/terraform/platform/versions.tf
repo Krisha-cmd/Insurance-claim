@@ -37,3 +37,9 @@ locals {
     promtail                     = "6.17.1"
   }
 }
+
+locals {
+  # Install the charts from var.local_chart_dir instead of their repositories (same pinned versions).
+  use_local_charts = var.local_chart_dir != ""
+  chart_dir        = "${path.module}/${var.local_chart_dir}"
+}
