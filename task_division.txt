@@ -33,7 +33,7 @@ Contributions:
   - PR #12 Claim Intake service
   - PR #13 Policy service
 
-ID: 2025H1120237  Name: Praptipriya Phukon  (GitHub: praptipriyaph)
+ID: 2025H1120237P  Name: Praptipriya Phukon  (GitHub: praptipriyaph)
 Tasks:
   - #4 Eligibility service
   - #5 Assessment service
