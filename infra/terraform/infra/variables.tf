@@ -63,7 +63,7 @@ variable "cluster_version" {
 variable "node_instance_types" {
   description = "Instance types of the EKS managed node group."
   type        = list(string)
-  default     = ["t3.medium"]
+  default     = ["t3.large"]
 }
 
 variable "node_min_size" {
@@ -79,9 +79,9 @@ variable "node_desired_size" {
 }
 
 variable "node_max_size" {
-  description = "Maximum EKS worker nodes."
+  description = "Maximum EKS worker nodes. Counted at full size against ec2_vcpu_quota."
   type        = number
-  default     = 4
+  default     = 2
 }
 
 variable "rds_instance_class" {
@@ -139,9 +139,9 @@ variable "emr_core_instance_type" {
 }
 
 variable "emr_core_instance_count" {
-  description = "Number of EMR core nodes."
+  description = "Number of EMR core nodes. 0 makes a single-node cluster: YARN and Flink run on the primary."
   type        = number
-  default     = 1
+  default     = 0
 }
 
 variable "emr_idle_timeout_seconds" {
@@ -209,5 +209,12 @@ variable "enable_github_oidc" {
 variable "github_repository" {
   description = "GitHub repository (owner/name) allowed to assume the CI role."
   type        = string
-  default     = ""
+  default     = "Krisha-cmd/Insurance-claim"
+}
+
+# ---------------------------------------------------------------- account limits
+variable "ec2_vcpu_quota" {
+  description = "The account's 'Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances' quota in vCPUs. The plan fails if the EKS nodes (at node_max_size) and the EMR nodes together need more."
+  type        = number
+  default     = 8
 }

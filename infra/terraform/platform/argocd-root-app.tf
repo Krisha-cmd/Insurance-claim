@@ -42,8 +42,8 @@ resource "helm_release" "argocd_root_app" {
   count = var.gitops_repo_url != "" ? 1 : 0
 
   name       = "argocd-root-app"
-  repository = "https://argoproj.github.io/argo-helm"
-  chart      = "argocd-apps"
+  repository = local.use_local_charts ? null : "https://argoproj.github.io/argo-helm"
+  chart      = local.use_local_charts ? "${local.chart_dir}/argocd-apps-${local.charts.argocd_apps}.tgz" : "argocd-apps"
   version    = local.charts.argocd_apps
   namespace  = kubernetes_namespace_v1.argocd.metadata[0].name
 

@@ -142,7 +142,7 @@ resource "kubernetes_job_v1" "db_init" {
           name    = "psql"
           image   = var.postgres_image
           command = ["/bin/sh", "-c"]
-          args    = [local.db_init_script]
+          args    = [replace(local.db_init_script, "\r", "")] # a Windows checkout has CRLF line ends, and sh rejects "set -eu<CR>"
 
           env_from {
             secret_ref {
@@ -250,7 +250,7 @@ resource "kubernetes_job_v1" "kafka_topics" {
           name    = "kafka-topics"
           image   = var.kafka_image
           command = ["/bin/sh", "-c"]
-          args    = [local.kafka_topics_script]
+          args    = [replace(local.kafka_topics_script, "\r", "")] # same CRLF guard as db_init
 
           env {
             name  = "BOOTSTRAP"

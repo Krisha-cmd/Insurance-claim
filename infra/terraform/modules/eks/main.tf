@@ -20,8 +20,9 @@ module "eks" {
     vpc-cni = {
       most_recent    = true
       before_compute = true # the CNI must exist before nodes join, or they stay NotReady
-      # Prefix delegation raises the pod limit of a t3.medium from 17 to 110. Without it,
-      # 2 nodes cannot fit the platform add-ons plus the nine services.
+      # Prefix delegation hands each node /28 blocks of 16 pod IPs, so IP addresses never limit
+      # pods. The kubelet's max-pods is not raised here, so the instance-type default applies
+      # (35 on a t3.large: 3 ENIs x (12 IPs - 1) + 2).
       configuration_values = jsonencode({
         # Enforce Kubernetes NetworkPolicies (k8s/base/network-policies.yaml) with the VPC CNI's eBPF agent.
         enableNetworkPolicy = "true"

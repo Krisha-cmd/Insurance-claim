@@ -17,11 +17,11 @@ The code is split into three **stacks**. A stack is a folder you run `terraform`
 | AWS resource | Purpose | Approx. cost / hour* |
 |---|---|---|
 | VPC across 2 AZs: 2 public and 2 private subnets, **1 NAT gateway**, S3 and DynamoDB gateway endpoints | Private network. The gateway endpoints are free and keep S3/DynamoDB traffic off the NAT | ~$0.06 + data |
-| **EKS** `claims-dev` (Kubernetes 1.33) with 2 × `t3.medium` nodes, plus the EBS CSI driver and a default `gp3` StorageClass | Runs the six services, ArgoCD and monitoring | $0.10 + ~$0.09 |
+| **EKS** `claims-dev` (Kubernetes 1.33) with 2 × `t3.large` nodes (4 vCPU, 16 GiB in total), plus the EBS CSI driver and a default `gp3` StorageClass | Runs the services, ArgoCD and monitoring | $0.10 + ~$0.18 |
 | **ECR**: 10 repositories (`claims-dev/<service>`, frontend included) | Container images | storage only |
 | **RDS PostgreSQL 16**, `db.t4g.micro`, 20 GB gp3, single-AZ | One database per service. The master password lives in Secrets Manager | ~$0.02 |
-| **MSK** Kafka 3.6.0, 2 × `kafka.t3.small` | Event bus between services (`claim-events`, `claim-analytics`, `doc-verified`) | ~$0.09 |
-| **EMR** 7.6.0 (Flink 1.20 + Hadoop), 1 primary + 1 core `m5.xlarge`. Stops itself after 2 h idle | Runs the Audit Flink job (Kafka → results topic + DynamoDB) | ~$0.53 |
+| **MSK** Kafka 3.8.x, 2 × `kafka.t3.small` | Event bus between services (`claim-events`, `claim-analytics`, `doc-verified`) | ~$0.09 |
+| **EMR** 7.6.0 (Flink 1.20 + Hadoop), a single-node cluster: 1 primary `m5.xlarge` (no core nodes; YARN and Flink run on the primary). Stops itself after 2 h idle | Runs the Audit Flink job (Kafka → results topic + DynamoDB) | ~$0.25 |
 | **Lambda** `document-verification` (Java 21, SnapStart) | Event-driven, asynchronous document checks | per use (pennies) |
 | **SQS** `doc-upload-events` and `doc-verification-results`, each with a dead-letter queue | S3 → Lambda → Claim Intake | per use (pennies) |
 | **S3** buckets `documents`, `emr-logs` and `artifacts` | Claim documents (pre-signed uploads), EMR logs, jars | storage only |
@@ -30,7 +30,9 @@ The code is split into three **stacks**. A stack is a folder you run `terraform`
 | CloudWatch log groups (7-day retention) | MSK broker logs, Lambda logs, Flink logs | pennies |
 | ALBs, **only** if you expose ArgoCD/Grafana or apps create Ingresses | Public HTTP access | ~$0.025 each |
 
-\* **These figures are approximate**, on-demand prices in `ap-south-1` (Mumbai) at the time of writing. With everything on, expect **about $0.90 to $1.00 per hour**, roughly $22 a day. The minimal "login test" setup (section 4) costs **about $0.27 per hour**.
+**EC2 vCPU quota.** The EKS nodes and the EMR node are EC2 instances, so they share the account's *Running On-Demand Standard instances* quota. The defaults use exactly **8 vCPUs**: EKS 2 × 2 (at `node_max_size`) and EMR 1 × 4. MSK, RDS, the NAT gateway and Lambda do not count. `infra/quota.tf` looks up each instance type's vCPUs and **fails the plan** if the sizing needs more than `ec2_vcpu_quota` (default 8); `terraform output ec2_vcpu_usage` shows the total. Check your quota with `aws service-quotas get-service-quota --service-code ec2 --quota-code L-1216C47A`.
+
+\* **These figures are approximate**, on-demand prices in `ap-south-1` (Mumbai) at the time of writing. With everything on, expect **about $0.75 to $0.80 per hour**, roughly $19 a day. The minimal "login test" setup (section 4) costs **about $0.36 per hour**.
 
 > ### ⚠️ Run `terraform destroy` as soon as you are finished (see step 9). These resources bill every hour whether or not you use them.
 
@@ -179,7 +181,7 @@ kubectl -n observability port-forward svc/kube-prometheus-stack-grafana 3000:80
 terraform output -raw grafana_admin_password; echo     # run inside infra/terraform/platform
 ```
 Open <http://localhost:3000> and sign in as `admin` with that password.
-- **Dashboards → Claims overview**: RPS, error rate, p95 latency, HPA replicas, node and pod CPU/memory, plus the Loki and Flink log panels. The service panels stay empty until services are deployed.
+- **Dashboards → Claims platform**: REST and gRPC rate, errors and latency per service; JVM and database pools; Kubernetes cluster health; SQS, Lambda and RDS from CloudWatch; and logs from every pod (Loki) plus the Flink job and the Lambda (CloudWatch). The service panels stay empty until services are deployed. Details: [`docs/observability.md`](../docs/observability.md).
 - **Connections → Data sources** lists Prometheus, Loki and CloudWatch.
 
 **Prometheus** (optional): `kubectl -n observability port-forward svc/kube-prometheus-stack-prometheus 9090:9090`, then open <http://localhost:9090/targets>.
@@ -263,16 +265,17 @@ cd ../infra && terraform destroy -var-file=dev.tfvars
 | `ecr_repositories` | 9 services | ECR repositories | You add or rename a service |
 | `rds_extra_allowed_security_groups` | `{}` | Extra clients allowed into PostgreSQL | A bastion host or VPN |
 | `cluster_version` | `1.33` | Kubernetes version | Upgrades, one minor version at a time |
-| `node_instance_types` | `["t3.medium"]` | Worker size | Pods are Pending for lack of CPU or memory |
-| `node_min_size` / `node_desired_size` / `node_max_size` | `2 / 2 / 4` | Number of workers | Scaling, see the recipe below |
+| `node_instance_types` | `["t3.large"]` | Worker size | Pods are Pending for lack of CPU or memory |
+| `node_min_size` / `node_desired_size` / `node_max_size` | `2 / 2 / 2` | Number of workers (`node_max_size` counts against the vCPU quota) | Scaling, see the recipe below |
 | `rds_instance_class` / `rds_allocated_storage` | `db.t4g.micro` / `20` | Database size | Load tests |
 | `msk_broker_instance_type` / `msk_broker_count` / `msk_broker_volume_size` | `kafka.t3.small` / `2` / `10` | Kafka size | Higher throughput |
 | `emr_release_label` | `emr-7.6.0` | EMR and Flink version (7.6.0+ ships Flink 1.20, which the job is built for) | A newer Flink |
-| `emr_primary_instance_type` / `emr_core_instance_type` / `emr_core_instance_count` | `m5.xlarge` / `m5.xlarge` / `1` | Flink cluster size | A bigger job, or AZ capacity errors |
+| `emr_primary_instance_type` / `emr_core_instance_type` / `emr_core_instance_count` | `m5.xlarge` / `m5.xlarge` / `0` | Flink cluster size (`0` core nodes = single-node cluster) | A bigger job, or AZ capacity errors |
 | `emr_idle_timeout_seconds` | `7200` | Idle EMR auto-termination | Longer or shorter idle windows |
 | `lambda_jar_path` / `lambda_handler` / `lambda_timeout_seconds` | see `dev.tfvars` | Lambda code, entry point and timeout | Your build produces a different jar |
 | `enable_rds` / `enable_msk` / `enable_emr` / `enable_lambda` / `enable_dynamodb` | all `true` | Create or remove each component | Saving cost or time, see the recipe |
 | `enable_github_oidc` / `github_repository` | `false` / `""` | GitHub Actions role that can push to ECR | CI pushes images |
+| `ec2_vcpu_quota` | `8` | The plan fails if EKS (at `node_max_size`) + EMR need more vCPUs | AWS raised your quota |
 
 ### Variables of `platform` (set them in `platform/terraform.tfvars`)
 
@@ -287,7 +290,7 @@ cd ../infra && terraform destroy -var-file=dev.tfvars
 | `prometheus_retention` / `prometheus_storage_size` / `loki_storage_size` | `7d` / `10Gi` / `10Gi` | Monitoring retention and disk |
 | `state_bucket` | derived | Only if your state bucket isn't `claims-dev-tfstate-<account_id>` |
 
-### Recipe: minimal login test run (about 15 minutes, about $0.27 per hour)
+### Recipe: minimal login test run (about 15 minutes, about $0.36 per hour)
 
 In `dev.tfvars`:
 ```hcl
@@ -300,7 +303,9 @@ Only the VPC, EKS, ECR, RDS (plus S3/SQS, which are free when idle) are created.
 
 ### Recipe: scale the node group or change instance types
 
-Set `node_instance_types = ["t3.large"]` and/or `node_max_size = 6`, then `terraform apply -var-file=dev.tfvars` in `infra`. A changed instance type replaces the nodes one at a time. Pods move automatically.
+Change `node_instance_types` and/or `node_max_size`, then `terraform apply -var-file=dev.tfvars` in `infra`. The plan fails first if the new sizing exceeds `ec2_vcpu_quota`.
+
+**Quota caveat:** a changed instance type or a node AMI update starts the *new* nodes before it stops the old ones. At the default sizing, all 8 vCPUs are already in use, so AWS refuses the extra nodes (`VcpuLimitExceeded`). Free the room first: set `enable_emr = false` and `apply` (or wait for EMR to stop itself after 2 h idle), change the nodes, then turn EMR back on.
 
 ### Recipe: add a new service
 
@@ -340,6 +345,7 @@ Change `gitops_repo_url`, `gitops_revision` or `gitops_path` in `platform/terraf
 
 | Symptom | Likely cause and fix |
 |---|---|
+| Node group `CREATE_FAILED` with `AsgInstanceLaunchFailures: VcpuLimitExceeded`, or EMR `TERMINATING` with "vCPUs … exceeds the EC2 service quota" | The 8-vCPU quota is already used. Most often by **leftover node groups from earlier failed applies**: a failed node group is replaced by a new one *before* the old one is destroyed, so its instances keep the quota. Check: `aws ec2 describe-instances --filters Name=instance-state-name,Values=running` and `aws eks list-nodegroups --cluster-name claims-dev`. Fix: delete every `CREATE_FAILED` group (`aws eks delete-nodegroup --cluster-name claims-dev --nodegroup-name <name>`), wait until their instances are gone, then `terraform apply` again. Terraform drops the deleted ones from its state. The quota itself: `aws service-quotas get-service-quota --service-code ec2 --quota-code L-1216C47A` |
 | `helm_release ... context deadline exceeded` / timeout | A pod didn't become ready. Run `kubectl get pods -A`, then `kubectl -n <ns> describe pod <pod>` and `kubectl get events -A --sort-by=.lastTimestamp`. Common causes: a PVC is `Pending` (check that the `gp3` StorageClass and the `ebs-csi-controller` pods are running), or nodes are full (`Too many pods` / `Insufficient cpu`: raise `node_desired_size`, or use bigger instances). Then run `terraform apply` again. |
 | An Ingress has no ADDRESS / no ALB is created | `kubectl -n kube-system logs deploy/aws-load-balancer-controller`. Look for **AccessDenied**: the IRSA role annotation is missing (`kubectl -n kube-system get sa aws-load-balancer-controller -o yaml`). Look for **couldn't auto-discover subnets**: the subnet tags `kubernetes.io/role/elb` are missing. Both come from Terraform, so run `apply` again in `infra` and then in `platform`. |
 | `db-init` Job fails or times out | `kubectl -n claims logs job/db-init`. **Stuck at "Waiting for …"**: a security group problem. RDS only accepts the EKS node security group, so check `rds_security_group_id` in the EC2 console. **`no pg_hba.conf entry … no encryption`**: SSL is required, and the Job sets `PGSSLMODE=require`. If you changed the image, keep that. Fix the cause, then `kubectl -n claims delete job db-init` and run `terraform apply` again. |

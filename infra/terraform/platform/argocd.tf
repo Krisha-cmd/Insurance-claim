@@ -46,8 +46,8 @@ locals {
 
 resource "helm_release" "argocd" {
   name       = "argocd"
-  repository = "https://argoproj.github.io/argo-helm"
-  chart      = "argo-cd"
+  repository = local.use_local_charts ? null : "https://argoproj.github.io/argo-helm"
+  chart      = local.use_local_charts ? "${local.chart_dir}/argo-cd-${local.charts.argo_cd}.tgz" : "argo-cd"
   version    = local.charts.argo_cd
   namespace  = kubernetes_namespace_v1.argocd.metadata[0].name
   wait       = true

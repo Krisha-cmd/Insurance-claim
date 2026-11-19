@@ -29,6 +29,7 @@ other.
 | **Terraform** | A recipe that builds everything on AWS | Nothing is clicked by hand, so it can be rebuilt or deleted with one command |
 | **GitOps** (Argo CD) + **CI** (GitHub Actions) | CI builds the lunchboxes; Argo CD copies whatever is in Git onto Kubernetes | Git is the single source of truth. To change or undo something, change Git |
 | **Ops dashboard** | The adjuster's control room: audit trail, charts, fraud flags, chaos buttons | To watch the system and break it on purpose to show the 3PC recovering |
+| **k6** (load tests) | Hundreds of pretend users clicking at once | Proves the system stays fast under pressure, and that Kubernetes adds copies (HPA) when it gets busy |
 
 ## What you need installed
 
@@ -57,7 +58,7 @@ npm run dev                     # open http://localhost:5173
 # 1. the database (one Postgres, one database per service)
 cd backend
 docker compose up -d
-docker exec -i claims-postgres psql -U login -d login < local/create-databases.sql
+Get-Content .\local\create-databases.sql | docker exec -i claims-postgres psql -U login -d login
 
 # 2. all nine services, each on its own port (first run builds the jars)
 ./local/run-all.sh              # wait for nine "UP" lines; logs are in backend/local/logs
@@ -89,11 +90,22 @@ mvn -f analytics/audit-flink/pom.xml package    # the Flink job and its tests
 cd ../frontend && npm run build                 # the website compiles
 ```
 
+### A4. Load test (many pretend users at once)
+
+**k6** pretends to be lots of people using the site, so you can see how fast it stays and whether it breaks.
+With A2 running (start the website with `npm run dev:backend -- --host 127.0.0.1` so k6 can reach it):
+
+```bash
+BASE_URL=http://127.0.0.1:5173 PROFILE=load ./loadtest/run.sh   # from the repo root; profiles: smoke, load, stress
+```
+
+The report, with graphs, goes to `loadtest/reports/<date>-<profile>/report.md`. See `loadtest/README.md`.
+
 ---
 
 ## Part B: on AWS (the real thing)
 
-> ⚠️ This costs about **$1 per hour**. Run step 9 when you're done.
+> ⚠️ This costs about **$0.80 per hour**. Run step 9 when you're done.
 
 Run every command from the repository root unless it says `cd`.
 
@@ -103,26 +115,49 @@ aws configure                    # access key, secret, region ap-south-1
 aws sts get-caller-identity      # prints your account ID; you need it below
 
 # 2. a place for Terraform to remember what it built (once per account)
-cd infra/terraform/bootstrap && terraform init && terraform apply && cd -
+ infra/terraform/bootstrap
+
+terraform init
+terraform apply
+
+Pop-Location
 
 # 3. build the document-checking Lambda (Terraform uploads this jar)
-cd backend && mvn -pl functions/document-verification -am package && cd -
+Push-Location backend; mvn -pl functions/document-verification -am package; Pop-Location
 
 # 4. the cloud: network, Kubernetes, databases, Kafka, EMR, S3, SQS, Lambda, DynamoDB, ECR (~25 min)
-cd infra/terraform/infra
-terraform init -backend-config="bucket=claims-dev-tfstate-<account_id>" \
-  -backend-config="region=ap-south-1" -backend-config="dynamodb_table=claims-dev-tf-locks"
-terraform apply -var-file=dev.tfvars
-aws eks update-kubeconfig --name claims-dev --region ap-south-1
-cd -
+
+Push-Location infra/terraform/infra
+
+terraform plan -var-file="dev.tfvars"
+terraform apply -var-file="dev.tfvars"
+
+terraform init `
+  -backend-config="bucket=claims-dev-tfstate-539022480660" `
+  -backend-config="region=ap-south-1" `
+  -backend-config="dynamodb_table=claims-dev-tf-locks"
+
+if ($LASTEXITCODE -eq 0) {
+    terraform apply -var-file=dev.tfvars
+}
+
+if ($LASTEXITCODE -eq 0) {
+    aws eks update-kubeconfig --name claims-dev --region ap-south-1
+}
+
+Pop-Location
+
+
+kubectl get nodes
+kubectl get pods -A
 
 # 5. inside Kubernetes: load balancer controller, monitoring, database users, secrets, and Argo CD (GitOps)
-cd infra/terraform/platform
+Push-Location infra/terraform/platform
 echo 'gitops_repo_url = "https://github.com/Krisha-cmd/Insurance-claim.git"' > terraform.tfvars
 terraform init -backend-config="bucket=claims-dev-tfstate-<account_id>" \
   -backend-config="region=ap-south-1" -backend-config="dynamodb_table=claims-dev-tf-locks"
 terraform apply
-cd -
+Pop-Location
 ```
 
 **6. Put the programs on Kubernetes (GitOps).** You never run `kubectl apply` for the services.
@@ -141,24 +176,53 @@ kubectl -n claims get pods             # every service Running
 
 ```bash
 # 7. start the audit robot (Flink) on EMR
-cd backend && mvn -f analytics/audit-flink/pom.xml package && cd -
-cd infra/terraform/infra
-ARTIFACTS=$(terraform output -raw artifacts_bucket); CLUSTER_ID=$(terraform output -raw emr_cluster_id)
-BROKERS=$(terraform output -raw msk_bootstrap_brokers); TABLE=$(terraform output -raw analytics_table_name)
-aws s3 cp ../../../backend/analytics/audit-flink/target/audit-flink.jar s3://$ARTIFACTS/flink/audit-flink.jar
-aws emr add-steps --cluster-id "$CLUSTER_ID" --steps \
-  "Type=CUSTOM_JAR,Name=flink-session,ActionOnFailure=CONTINUE,Jar=command-runner.jar,Args=[flink-yarn-session,-d]" \
-  "Type=CUSTOM_JAR,Name=audit-flink,ActionOnFailure=CONTINUE,Jar=command-runner.jar,Args=[bash,-c,aws s3 cp s3://$ARTIFACTS/flink/audit-flink.jar /home/hadoop/audit-flink.jar && flink run -d /home/hadoop/audit-flink.jar --bootstrap $BROKERS --events-topic claim-events --results-topic claim-analytics --table $TABLE --region ap-south-1 --checkpoint-dir s3://$ARTIFACTS/flink/checkpoints]"
-cd -
+# 1. Build the Flink JAR
+Push-Location backend
+mvn -f analytics/audit-flink/pom.xml package
+Pop-Location
+
+# 2. Navigate to Terraform directory
+Push-Location infra/terraform/infra
+
+# 3. Fetch Terraform outputs
+$ARTIFACTS = terraform output -raw artifacts_bucket
+$CLUSTER_ID = terraform output -raw emr_cluster_id
+$BROKERS = terraform output -raw msk_bootstrap_brokers
+$TABLE = terraform output -raw analytics_table_name
+
+# 4. Upload JAR to S3
+aws s3 cp ../../../backend/analytics/audit-flink/target/audit-flink.jar "s3://$ARTIFACTS/flink/audit-flink.jar"
+
+# 5. Submit EMR steps
+aws emr add-steps --cluster-id $CLUSTER_ID --steps `
+    "Type=CUSTOM_JAR,Name=flink-session,ActionOnFailure=CONTINUE,Jar=command-runner.jar,Args=[flink-yarn-session,-d]" `
+    "Type=CUSTOM_JAR,Name=audit-flink,ActionOnFailure=CONTINUE,Jar=command-runner.jar,Args=[bash,-c,aws s3 cp s3://$ARTIFACTS/flink/audit-flink.jar /home/hadoop/audit-flink.jar && flink run -d /home/hadoop/audit-flink.jar --bootstrap $BROKERS --events-topic claim-events --results-topic claim-analytics --table $TABLE --region ap-south-1 --checkpoint-dir s3://$ARTIFACTS/flink/checkpoints]"
+
+# 6. Return to original directory
+Pop-Location
 
 # 8. open it
 kubectl -n claims get ingress          # the ADDRESS column is the website: http://<address>
 kubectl -n argocd port-forward svc/argocd-server 8080:80                     # Argo CD at http://localhost:8080
-kubectl -n observability port-forward svc/kube-prometheus-stack-grafana 3000:80   # Grafana at http://localhost:3000
+kubectl -n observability port-forward svc/kube-prometheus-stack-grafana 3000:80   # Grafana at http://localhost:3000, dashboard "Claims platform"
+
+# 8b. load test it and watch the HPAs add pods (the report includes the pod counts)
+BASE_URL=http://<address> PROFILE=stress ./loadtest/run.sh
 
 # 9. delete everything (stops the bill); full safe order in infra/README.md
 kubectl delete ingress --all -A
-cd infra/terraform/platform && terraform destroy && cd ../infra && terraform destroy -var-file=dev.tfvars
+# 1. Destroy platform infrastructure
+Push-Location infra/terraform/platform
+terraform destroy
+
+# 2. Destroy core infrastructure
+Pop-Location
+Push-Location infra
+terraform destroy -var-file=dev.tfvars
+
+# 3. Return to original directory
+Pop-Location
+Pop-Location
 ```
 
 ### Changing something later
@@ -179,7 +243,11 @@ The Lambda and the Flink job aren't on Kubernetes:
 | --- | --- |
 | Design, diagrams, why | `docs/design-document.md` (and the PDF next to it) |
 | AWS and Terraform, step by step | `infra/README.md` |
+| Machine sizes, quota, autoscaling limits | `capacity.md` |
+| Metrics, logs and the Grafana dashboard | `docs/observability.md` |
+| How the three-phase commit works (simple version) | `3pc.md` |
 | GitOps, CI, rollback | `gitops/README.md` |
+| Load tests and their reports | `loadtest/README.md`, `loadtest/reports/` |
 | One service | `backend/services/<name>/README.md` |
 | Lambda / Flink | `backend/functions/document-verification/README.md`, `backend/analytics/audit-flink/README.md` |
 | Website | `frontend/README.md` |
