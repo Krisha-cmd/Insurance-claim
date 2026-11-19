@@ -222,7 +222,14 @@ resource "aws_iam_role" "github_actions" {
       Action    = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com" }
-        StringLike   = { "token.actions.githubusercontent.com:sub" = "repo:${var.github_repository}:*" }
+        # Both subject formats: "repo:<owner>/<repo>:..." and GitHub's immutable one,
+        # "repo:<owner>@<owner-id>/<repo>@<repo-id>:...", which repositories can opt into.
+        StringLike = {
+          "token.actions.githubusercontent.com:sub" = [
+            "repo:${var.github_repository}:*",
+            "repo:${split("/", var.github_repository)[0]}@*/${split("/", var.github_repository)[1]}@*:*",
+          ]
+        }
       }
     }]
   })
