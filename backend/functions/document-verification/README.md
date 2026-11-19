@@ -99,7 +99,7 @@ There is one JSON line per document on stdout, so CloudWatch Logs Insights can f
 
 ```bash
 cd backend
-mvn -pl functions/document-verification package    # → target/document-verification.jar (shaded, ~12 MB)
+mvn -pl functions/document-verification -am package   # → target/document-verification.jar (shaded, ~12 MB)
 ```
 
 The tests use real S3 event JSON in `src/test/resources/events/` (a PUT, an .exe, an oversize scan, a
