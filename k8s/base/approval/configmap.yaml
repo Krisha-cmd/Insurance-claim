@@ -17,3 +17,7 @@ data:
   GRPC_ASSESSMENT_TARGET: "dns:///assessment:9090"
   GRPC_CLAIM_TARGET: "dns:///claim-intake:9090"
   CHAOS_ENABLED: "true"
+  # Connection pool per pod. All services share one small RDS instance (~80 connections), and every
+  # replica opens its own pool, so it is kept small enough for every service at its HPA maximum (capacity.md).
+  SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: "5"
+  SPRING_DATASOURCE_HIKARI_MINIMUMIDLE: "1"

@@ -12,3 +12,7 @@ data:
   SPRING_PROFILES_ACTIVE: "aws"
   JWT_JWKS_URI: "http://login.claims.svc.cluster.local/.well-known/jwks.json"
   CORS_ALLOWED_ORIGINS: "http://localhost:5173"
+  # Connection pool per pod. All services share one small RDS instance (~80 connections), and every
+  # replica opens its own pool, so it is kept small enough for every service at its HPA maximum (capacity.md).
+  SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: "5"
+  SPRING_DATASOURCE_HIKARI_MINIMUMIDLE: "1"
