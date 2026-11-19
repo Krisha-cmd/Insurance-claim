@@ -84,7 +84,7 @@ Each setting is read from a job argument, then an environment variable, then a d
 Needs JDK 17 and Maven. Run from `backend/`:
 
 ```bash
-mvn -pl analytics/audit-flink -am package
+mvn -f analytics/audit-flink/pom.xml package
 ```
 
 This runs the unit tests (each aggregate, the settlement function in a `KeyedOneInputStreamOperatorTestHarness`, the DynamoDB item layout, the deserializer) and a MiniCluster test that pushes a fixed list of timestamped events through the whole topology. It checks the window output, a fraud flag for 3 claims on one policy within 10 minutes, and no flag for 3 claims spread over 15 minutes. The fat jar is `target/audit-flink.jar`.
@@ -155,7 +155,7 @@ Stop everything with `./flink-1.20.0/bin/stop-cluster.sh` and `docker compose do
 
 The cluster, MSK, the bucket and the table come from [`infra/terraform`](../../../infra/README.md). The cluster must run `emr-7.6.0` or later (Flink 1.20). Its instance role can read the artifacts bucket and write checkpoints under `flink/checkpoints/`.
 
-From `infra/terraform/infra`, after `mvn -pl analytics/audit-flink -am package` in `backend/`:
+From `infra/terraform/infra`, after `mvn -f analytics/audit-flink/pom.xml package` in `backend/`:
 
 ```bash
 CLUSTER_ID=$(terraform output -raw emr_cluster_id)
