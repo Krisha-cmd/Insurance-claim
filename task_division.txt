@@ -47,10 +47,3 @@ Contributions:
 Shared
   - No issue without an assignee.
 
-TODO
-  1. ID numbers: the members list (ID number, full name, GitHub username) was not provided. Fill in each "ID: TODO".
-     The names above come from git commit author names.
-  2. Commits b35a038, fb7c19b and 020a742 (PRs #14-#16, opened by Krisha-cmd) have the git author name
-     "Krisha-cmd" but the commit email that Tathya-25's commits use. GitHub links commits to accounts by
-     email, so it may show them under Tathya-25. They are listed under Krisha Aggarwal here (PR author and
-     git author name); confirm.

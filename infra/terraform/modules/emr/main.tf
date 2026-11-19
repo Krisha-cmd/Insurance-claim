@@ -321,14 +321,18 @@ resource "aws_emr_cluster" "this" {
     instance_type = var.primary_instance_type
   }
 
-  core_instance_group {
-    instance_type  = var.core_instance_type
-    instance_count = var.core_instance_count
+  # No core nodes (core_instance_count = 0) makes a single-node cluster: YARN and Flink run on the primary.
+  dynamic "core_instance_group" {
+    for_each = var.core_instance_count > 0 ? [1] : []
+    content {
+      instance_type  = var.core_instance_type
+      instance_count = var.core_instance_count
 
-    ebs_config {
-      size                 = var.core_ebs_size
-      type                 = "gp3"
-      volumes_per_instance = 1
+      ebs_config {
+        size                 = var.core_ebs_size
+        type                 = "gp3"
+        volumes_per_instance = 1
+      }
     }
   }
 

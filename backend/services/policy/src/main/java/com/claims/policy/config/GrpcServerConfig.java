@@ -1,6 +1,8 @@
 package com.claims.policy.config;
 
 import io.grpc.BindableService;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.binder.grpc.MetricCollectingServerInterceptor;
 import io.grpc.Grpc;
 import io.grpc.InsecureServerCredentials;
 import io.grpc.Server;
@@ -26,14 +28,16 @@ public class GrpcServerConfig implements SmartLifecycle {
     private static final Logger log = LoggerFactory.getLogger(GrpcServerConfig.class);
 
     private final List<BindableService> services;
+    private final MeterRegistry meterRegistry;
     private final int port;
     private final String inProcessName;
     private volatile Server server;
 
-    public GrpcServerConfig(List<BindableService> services,
+    public GrpcServerConfig(List<BindableService> services, MeterRegistry meterRegistry,
                             @Value("${claims.grpc.server.port}") int port,
                             @Value("${claims.grpc.server.in-process-name:}") String inProcessName) {
         this.services = services;
+        this.meterRegistry = meterRegistry;
         this.port = port;
         this.inProcessName = inProcessName;
     }
@@ -46,6 +50,8 @@ public class GrpcServerConfig implements SmartLifecycle {
         } else {
             builder = Grpc.newServerBuilderForPort(port, InsecureServerCredentials.create());
         }
+        // grpc_server_* metrics (rate, latency and status code per method) for Prometheus and the Grafana dashboard.
+        builder.intercept(new MetricCollectingServerInterceptor(meterRegistry));
         services.forEach(builder::addService);
         try {
             server = builder.build().start();

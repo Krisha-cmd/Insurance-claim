@@ -101,6 +101,11 @@ output "rds_master_secret_arn" {
   sensitive   = true
 }
 
+output "rds_instance_id" {
+  description = "PostgreSQL instance identifier (CloudWatch dimension; used by the Grafana dashboard)."
+  value       = try(module.rds[0].identifier, null)
+}
+
 output "rds_security_group_id" {
   description = "Security group of the PostgreSQL instance."
   value       = try(module.rds[0].security_group_id, null)
@@ -147,6 +152,16 @@ output "upload_events_queue_url" {
 output "results_queue_url" {
   description = "doc-verification-results queue URL (Claim Intake consumes it)."
   value       = module.sqs.results_queue_url
+}
+
+output "upload_events_dlq_url" {
+  description = "Dead-letter queue of doc-upload-events."
+  value       = module.sqs.upload_events_dlq_url
+}
+
+output "results_dlq_url" {
+  description = "Dead-letter queue of doc-verification-results."
+  value       = module.sqs.results_dlq_url
 }
 
 # ---- DynamoDB

@@ -1,6 +1,8 @@
 package com.claims.intake.storage;
 
+import com.claims.common.error.ApiException;
 import com.claims.intake.config.IntakeProperties;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -57,7 +59,9 @@ public class PresignedUrlService {
 
     private void requireBucket() {
         if (!isConfigured()) {
-            throw new IllegalStateException("DOCUMENTS_BUCKET is not set");
+            // 503, not 500: the server works, document storage just isn't configured (e.g. local runs without AWS).
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Document uploads are not available on this server (DOCUMENTS_BUCKET is not set).");
         }
     }
 }

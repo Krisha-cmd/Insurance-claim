@@ -78,7 +78,7 @@ variable "enable_github_oidc" {
 variable "github_repository" {
   description = "GitHub repository allowed to assume the CI role, as owner/name. Required when enable_github_oidc = true."
   type        = string
-  default     = ""
+  default     = "Krisha-cmd/Insurance-claim"
 }
 
 variable "ecr_repository_arns" {

@@ -1,0 +1,36 @@
+%% Source: backend/services/assessment/src/main/resources/db/migration/V1__init.sql (no ER diagram existed).
+erDiagram
+    ASSESSMENT ||--o{ ASSESSMENT_ADJUSTMENT : "is adjusted by"
+    ASSESSMENT {
+        uuid id PK
+        uuid claim_id UK "ref: Claims DB; one assessment per claim"
+        varchar policy_no "ref: Policy DB"
+        varchar treatment_category
+        uuid policyholder_id "owner check"
+        uuid submitted_by "owner check"
+        numeric claimed_amount
+        numeric sub_limit_applied "nullable: no sub-limit"
+        numeric after_cap
+        numeric deductible
+        numeric after_deductible
+        numeric copay_pct
+        numeric copay_amount
+        numeric remaining_balance "at the time"
+        numeric proposed_amount
+        numeric final_amount "adjusted, else proposed"
+        boolean adjusted
+        varchar currency
+        bigint version "optimistic lock"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    ASSESSMENT_ADJUSTMENT {
+        uuid id PK
+        uuid assessment_id FK
+        numeric before_amount
+        numeric after_amount "> 0"
+        varchar comment
+        uuid adjuster_id "ref: Login DB"
+        varchar adjuster_name
+        timestamptz adjusted_at
+    }
