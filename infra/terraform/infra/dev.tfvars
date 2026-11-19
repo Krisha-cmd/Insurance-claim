@@ -2,16 +2,19 @@
 # variables.tf, so this file documents the knobs; change what you need.
 
 # ---------------------------------------------------------------- general
-region                            = "ap-south-1"              # AWS region for every resource
-project                           = "claims"                  # resources are named <project>-<env>-<thing>
-env                               = "dev"                     # environment name
-vpc_cidr                          = "10.20.0.0/16"            # VPC address range
-az_count                          = 2                         # availability zones (subnets per tier)
-single_nat_gateway                = true                      # one NAT gateway (cheap) instead of one per AZ
-frontend_origins                  = ["http://localhost:5173"] # origins allowed to upload documents (S3 CORS)
-eks_public_access_cidrs           = ["0.0.0.0/0"]             # who may reach the Kubernetes API; narrow to your IP/32
-rds_extra_allowed_security_groups = {}                        # extra SGs allowed into PostgreSQL, e.g. { bastion = "sg-..." }
-ecr_repositories = [                                          # one ECR repository per image
+region             = "ap-south-1"                                        # AWS region for every resource
+project            = "claims"                                            # resources are named <project>-<env>-<thing>
+env                = "dev"                                               # environment name
+vpc_cidr           = "10.20.0.0/16"                                      # VPC address range
+az_count           = 2                                                   # availability zones (subnets per tier)
+single_nat_gateway = true                                                # one NAT gateway (cheap) instead of one per AZ
+frontend_origins = [                                                     # origins allowed to upload documents (S3 CORS)
+  "http://localhost:5173",                                               # local dev server
+  "http://k8s-claims-8285bb1f19-892591207.ap-south-1.elb.amazonaws.com", # the dev site (ALB of ingress group "claims"; changes if that ALB is recreated)
+]
+eks_public_access_cidrs           = ["0.0.0.0/0"] # who may reach the Kubernetes API; narrow to your IP/32
+rds_extra_allowed_security_groups = {}            # extra SGs allowed into PostgreSQL, e.g. { bastion = "sg-..." }
+ecr_repositories = [                              # one ECR repository per image
   "login", "claim-intake", "policy", "eligibility", "assessment",
   "approval", "payment", "gateway-simulator", "ops-dashboard", "frontend",
 ]
