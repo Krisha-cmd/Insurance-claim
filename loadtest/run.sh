@@ -53,6 +53,8 @@ fi
 node "$here/scripts/report.mjs" "$results" "$report"
 node "$here/scripts/index.mjs" "$here/reports"
 [ "${KEEP_RAW:-false}" = true ] || rm -f "$results/raw.csv"
+# The newest run's HTML report, at the repository root for easy opening.
+cp "$report/report.html" "$here/../load-test-report.html" && echo "HTML report: load-test-report.html"
 
 # k6 exits 99 when a threshold failed: the report is still written, but the run counts as failed
 exit $k6_status
