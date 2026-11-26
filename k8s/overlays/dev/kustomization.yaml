@@ -3,107 +3,127 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: claims
 resources:
-  - ../../base
+- ../../base
 labels:
-  - pairs:
-      environment: dev
-    includeSelectors: false
+- pairs:
+    environment: dev
 replicas:
-  - name: login
-    count: 1
-  - name: claim-intake
-    count: 1
-  - name: policy
-    count: 1
-  - name: assessment
-    count: 1
-  - name: eligibility
-    count: 1
-  - name: approval
-    count: 1
-  - name: payment
-    count: 1
-  - name: gateway-simulator
-    count: 1
-  - name: ops-dashboard
-    count: 1
-  - name: frontend
-    count: 1
-patches:
+- count: 1
+  name: login
+- count: 1
+  name: claim-intake
+- count: 1
+  name: policy
+- count: 1
+  name: assessment
+- count: 1
+  name: eligibility
+- count: 1
+  name: approval
+- count: 1
+  name: payment
+- count: 1
+  name: gateway-simulator
+- count: 1
+  name: ops-dashboard
+- count: 1
+  name: frontend
   # HPA bounds per environment (approval stays at exactly 1: it is the 3PC coordinator).
-  - target: { kind: HorizontalPodAutoscaler, name: login }
-    patch: |-
-      - { op: replace, path: /spec/minReplicas, value: 1 }
-      - { op: replace, path: /spec/maxReplicas, value: 2 }
-  - target: { kind: HorizontalPodAutoscaler, name: claim-intake }
-    patch: |-
-      - { op: replace, path: /spec/minReplicas, value: 1 }
-      - { op: replace, path: /spec/maxReplicas, value: 2 }
-  - target: { kind: HorizontalPodAutoscaler, name: policy }
-    patch: |-
-      - { op: replace, path: /spec/minReplicas, value: 1 }
-      - { op: replace, path: /spec/maxReplicas, value: 2 }
-  - target: { kind: HorizontalPodAutoscaler, name: assessment }
-    patch: |-
-      - { op: replace, path: /spec/minReplicas, value: 1 }
-      - { op: replace, path: /spec/maxReplicas, value: 2 }
-  - target: { kind: HorizontalPodAutoscaler, name: eligibility }
-    patch: |-
-      - { op: replace, path: /spec/minReplicas, value: 1 }
-      - { op: replace, path: /spec/maxReplicas, value: 2 }
-  - target: { kind: HorizontalPodAutoscaler, name: approval }
-    patch: |-
-      - { op: replace, path: /spec/minReplicas, value: 1 }
-      - { op: replace, path: /spec/maxReplicas, value: 1 }
-  - target: { kind: HorizontalPodAutoscaler, name: payment }
-    patch: |-
-      - { op: replace, path: /spec/minReplicas, value: 1 }
-      - { op: replace, path: /spec/maxReplicas, value: 2 }
-  - target: { kind: HorizontalPodAutoscaler, name: gateway-simulator }
-    patch: |-
-      - { op: replace, path: /spec/minReplicas, value: 1 }
-      - { op: replace, path: /spec/maxReplicas, value: 2 }
-  - target: { kind: HorizontalPodAutoscaler, name: ops-dashboard }
-    patch: |-
-      - { op: replace, path: /spec/minReplicas, value: 1 }
-      - { op: replace, path: /spec/maxReplicas, value: 2 }
-  - target: { kind: HorizontalPodAutoscaler, name: frontend }
-    patch: |-
-      - { op: replace, path: /spec/minReplicas, value: 1 }
-      - { op: replace, path: /spec/maxReplicas, value: 2 }
-  - target: { kind: ConfigMap, name: approval-config }
-    patch: |-
-      - { op: replace, path: /data/CHAOS_ENABLED, value: "true" }
+patches:
+- patch: |-
+    - { op: replace, path: /spec/minReplicas, value: 1 }
+    - { op: replace, path: /spec/maxReplicas, value: 2 }
+  target:
+    kind: HorizontalPodAutoscaler
+    name: login
+- patch: |-
+    - { op: replace, path: /spec/minReplicas, value: 1 }
+    - { op: replace, path: /spec/maxReplicas, value: 2 }
+  target:
+    kind: HorizontalPodAutoscaler
+    name: claim-intake
+- patch: |-
+    - { op: replace, path: /spec/minReplicas, value: 1 }
+    - { op: replace, path: /spec/maxReplicas, value: 2 }
+  target:
+    kind: HorizontalPodAutoscaler
+    name: policy
+- patch: |-
+    - { op: replace, path: /spec/minReplicas, value: 1 }
+    - { op: replace, path: /spec/maxReplicas, value: 2 }
+  target:
+    kind: HorizontalPodAutoscaler
+    name: assessment
+- patch: |-
+    - { op: replace, path: /spec/minReplicas, value: 1 }
+    - { op: replace, path: /spec/maxReplicas, value: 2 }
+  target:
+    kind: HorizontalPodAutoscaler
+    name: eligibility
+- patch: |-
+    - { op: replace, path: /spec/minReplicas, value: 1 }
+    - { op: replace, path: /spec/maxReplicas, value: 1 }
+  target:
+    kind: HorizontalPodAutoscaler
+    name: approval
+- patch: |-
+    - { op: replace, path: /spec/minReplicas, value: 1 }
+    - { op: replace, path: /spec/maxReplicas, value: 2 }
+  target:
+    kind: HorizontalPodAutoscaler
+    name: payment
+- patch: |-
+    - { op: replace, path: /spec/minReplicas, value: 1 }
+    - { op: replace, path: /spec/maxReplicas, value: 2 }
+  target:
+    kind: HorizontalPodAutoscaler
+    name: gateway-simulator
+- patch: |-
+    - { op: replace, path: /spec/minReplicas, value: 1 }
+    - { op: replace, path: /spec/maxReplicas, value: 2 }
+  target:
+    kind: HorizontalPodAutoscaler
+    name: ops-dashboard
+- patch: |-
+    - { op: replace, path: /spec/minReplicas, value: 1 }
+    - { op: replace, path: /spec/maxReplicas, value: 2 }
+  target:
+    kind: HorizontalPodAutoscaler
+    name: frontend
+- patch: '- { op: replace, path: /data/CHAOS_ENABLED, value: "true" }'
+  target:
+    kind: ConfigMap
+    name: approval-config
 # Written by CI (.github/workflows/deliver.yml): the account's ECR registry and the short commit id.
 # Until CI has run once, these are placeholders.
 images:
-  - name: login
-    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/login
-    newTag: latest
-  - name: claim-intake
-    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/claim-intake
-    newTag: latest
-  - name: policy
-    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/policy
-    newTag: latest
-  - name: assessment
-    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/assessment
-    newTag: latest
-  - name: eligibility
-    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/eligibility
-    newTag: latest
-  - name: approval
-    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/approval
-    newTag: latest
-  - name: payment
-    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/payment
-    newTag: latest
-  - name: gateway-simulator
-    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/gateway-simulator
-    newTag: latest
-  - name: ops-dashboard
-    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/ops-dashboard
-    newTag: latest
-  - name: frontend
-    newName: account-id.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/frontend
-    newTag: latest
+- name: approval
+  newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/approval
+  newTag: a7e5507
+- name: assessment
+  newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/assessment
+  newTag: a7e5507
+- name: claim-intake
+  newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/claim-intake
+  newTag: a7e5507
+- name: eligibility
+  newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/eligibility
+  newTag: a7e5507
+- name: frontend
+  newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/frontend
+  newTag: a7e5507
+- name: gateway-simulator
+  newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/gateway-simulator
+  newTag: a7e5507
+- name: login
+  newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/login
+  newTag: a7e5507
+- name: ops-dashboard
+  newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/ops-dashboard
+  newTag: a7e5507
+- name: payment
+  newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/payment
+  newTag: a7e5507
+- name: policy
+  newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/policy
+  newTag: a7e5507

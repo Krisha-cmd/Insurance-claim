@@ -1,14 +1,15 @@
-        apiVersion: v1
-        kind: ConfigMap
-        metadata:
-          name: frontend-config
-          labels:
-            app.kubernetes.io/name: frontend
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  labels:
+    app.kubernetes.io/name: frontend
     app.kubernetes.io/part-of: claims
 data:
-          # Mounted over /usr/share/nginx/html/config.js. The API is on the same ALB, so its origin is the page's.
-          config.js: |
-            window.__APP_CONFIG__ = {
-              API_BASE_URL: window.location.origin,
-              USE_MOCKS: "false",
-            };
+  # Mounted over /usr/share/nginx/html/config.js. The API is on the same ALB, so its origin is the page's.
+  # Without this file the app falls back to its defaults: USE_MOCKS=true (the in-browser fake backend).
+  config.js: |
+    window.__APP_CONFIG__ = {
+      API_BASE_URL: window.location.origin,
+      USE_MOCKS: "false",
+    };

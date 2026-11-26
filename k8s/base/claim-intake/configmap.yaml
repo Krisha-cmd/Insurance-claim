@@ -15,3 +15,7 @@ data:
   GRPC_POLICY_TARGET: "dns:///policy:9090"
   GRPC_ELIGIBILITY_TARGET: "dns:///eligibility:9090"
   GRPC_ASSESSMENT_TARGET: "dns:///assessment:9090"
+  # Connection pool per pod. All services share one small RDS instance (~80 connections), and every
+  # replica opens its own pool, so it is kept small enough for every service at its HPA maximum (capacity.md).
+  SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: "5"
+  SPRING_DATASOURCE_HIKARI_MINIMUMIDLE: "1"

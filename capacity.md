@@ -264,6 +264,12 @@ for administrators. Check the real value with `SHOW max_connections;`. At 80 con
 nearly full, and the dev maximum of 150 would be refused. **Database connections are the first hard limit this
 platform hits when it scales.**
 
+**Applied in Kubernetes.** This limit was hit on the first AWS deployment: a second claim-intake pod failed with SQL
+state 53300, "remaining connection slots are reserved". The six database services' ConfigMaps now cap each pod's
+pool at 5 (`SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE`, minimum idle 1). That is 30 connections at one replica each
+and 55 at the dev maximum, against roughly 80 allowed. The 10 and 15 in the table above are the services' own
+defaults, still used when they run locally.
+
 ### 6. Kafka and Flink
 
 - **Partitions:** topics are auto-created with 3 partitions and replication factor 2, so `claim-events` can be read by

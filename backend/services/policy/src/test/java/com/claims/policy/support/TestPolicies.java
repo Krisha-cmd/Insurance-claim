@@ -16,14 +16,24 @@ public final class TestPolicies {
     private TestPolicies() {
     }
 
+    /**
+     * Owner of every policy made here. Not patient1: the test containers share one database, so policies given to
+     * patient1 would leak into "my policies" (GET /api/policies/me returns the one ending last) and make
+     * PolicyApiIntegrationTest depend on the order the test classes run in.
+     */
+    public static final UUID TEST_HOLDER = UUID.fromString("00000000-0000-4000-8000-00000000c1a1");
+
     /** @return the policy number */
     public static String create(JdbcTemplate jdbc, String sumInsured, String status) {
+        jdbc.update("""
+                insert into policyholder (id, user_id, full_name) values (?, ?, 'Test Policyholder')
+                on conflict (id) do nothing""", TEST_HOLDER, TEST_HOLDER);
         UUID id = UUID.randomUUID();
         String policyNo = "POL-T-" + id.toString().substring(0, 8);
         jdbc.update("""
                 insert into policy (id, policy_no, policyholder_id, plan_id, start_date, end_date, sum_insured, status)
                 values (?, ?, ?, ?, current_date - 30, current_date + 300, ?, ?)""",
-                id, policyNo, PATIENT1_HOLDER, PLAN, new BigDecimal(sumInsured), status);
+                id, policyNo, TEST_HOLDER, PLAN, new BigDecimal(sumInsured), status);
         jdbc.update("insert into insured_member (id, policy_id, full_name, relation) values (?, ?, 'Asha Verma', 'SELF')",
                 UUID.randomUUID(), id);
         jdbc.update("insert into policy_balance (policy_id) values (?)", id);

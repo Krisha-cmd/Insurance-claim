@@ -2,7 +2,7 @@
 
 A cloud-native system for processing medical insurance claims. It covers the full journey from filing a claim to settlement: eight microservices, with a **three-phase commit (3PC)** protocol making settlement all or nothing.
 
-> **Status:** design phase, draft 1. This README covers the business (black-box) view only. The technical architecture, service placement and deployment come next.
+
 
 ---
 
