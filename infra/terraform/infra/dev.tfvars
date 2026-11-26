@@ -10,7 +10,7 @@ az_count           = 2                                                   # avail
 single_nat_gateway = true                                                # one NAT gateway (cheap) instead of one per AZ
 frontend_origins = [                                                     # origins allowed to upload documents (S3 CORS)
   "http://localhost:5173",                                               # local dev server
-  "http://k8s-claims-8285bb1f19-892591207.ap-south-1.elb.amazonaws.com", # the dev site (ALB of ingress group "claims"; changes if that ALB is recreated)
+  "http://k8s-claims-8285bb1f19-797935702.ap-south-1.elb.amazonaws.com", # the dev site (ALB of ingress group "claims"; changes if that ALB is recreated)
 ]
 eks_public_access_cidrs           = ["0.0.0.0/0"] # who may reach the Kubernetes API; narrow to your IP/32
 rds_extra_allowed_security_groups = {}            # extra SGs allowed into PostgreSQL, e.g. { bastion = "sg-..." }
