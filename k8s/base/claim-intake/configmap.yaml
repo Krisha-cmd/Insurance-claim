@@ -15,6 +15,10 @@ data:
   GRPC_POLICY_TARGET: "dns:///policy:9090"
   GRPC_ELIGIBILITY_TARGET: "dns:///eligibility:9090"
   GRPC_ASSESSMENT_TARGET: "dns:///assessment:9090"
+  # Document types that must each have a VERIFIED document before a claim moves to DOCS_VERIFIED and the
+  # eligibility and assessment checks start. Must match the "required" flags in frontend/src/lib/status.js,
+  # where prescriptions and lab reports are optional. (The application.yml default also lists PRESCRIPTION.)
+  REQUIRED_DOC_TYPES: "DISCHARGE_SUMMARY,FINAL_BILL,ID_PROOF"
   # Connection pool per pod. All services share one small RDS instance (~80 connections), and every
   # replica opens its own pool, so it is kept small enough for every service at its HPA maximum (capacity.md).
   SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: "5"
