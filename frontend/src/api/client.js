@@ -55,6 +55,15 @@ function onUnauthorized() {
   }
 }
 
+/**
+ * True when the service behind the load balancer is down or restarting (the ALB answers 502/503/504 while a
+ * target has no healthy pod), or the request got no response at all. Different from a real server error:
+ * the right reaction is to wait and poll again, not to report a failure.
+ */
+export function isServiceUnavailable(err) {
+  return !!err && [0, 502, 503, 504].includes(err.status);
+}
+
 function readableMessage(status, body) {
   if (body && typeof body === 'object' && (body.message || body.error)) return body.message || body.error;
   if (status === 0) return 'Cannot reach the server. Check your connection and try again.';

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { approvalApi } from '../../../api/services.js';
+import { isServiceUnavailable } from '../../../api/client.js';
 import { POLL_INTERVAL_MS, LIVE_POLL_INTERVAL_MS } from '../../../config/api.js';
 import { useApi, useInterval } from '../../../lib/hooks.js';
 import { money, dateTime, time } from '../../../lib/format.js';
@@ -28,6 +29,23 @@ function phaseState(tx, i) {
 }
 const PHASE_TEXT = { done: 'Complete', active: 'In progress', failed: 'Aborted', pending: 'Waiting' };
 
+/**
+ * Shown while the Approval service (the 3PC coordinator) cannot be reached. The usual cause is the
+ * "Crash coordinator after PreCommit" chaos mode: the coordinator really stops, and Kubernetes restarts it.
+ */
+function CoordinatorRestarting({ stale }) {
+  return (
+    <div className="notice warning" role="status" aria-live="polite">
+      <strong>↻ The settlement coordinator is restarting.</strong>{' '}
+      The Approval service stopped. Usually this is the &ldquo;Crash coordinator after PreCommit&rdquo; chaos mode.
+      The participants keep their PreCommit. When the coordinator is back, typically within 1 to 2 minutes
+      (longer if it crashed several times in a row), it recovers this settlement from its transaction log and
+      finishes DoCommit. This page keeps checking and updates on its own.
+      {stale && ' The details below are from before it stopped.'}
+    </div>
+  );
+}
+
 function Vote({ v }) {
   if (v === 'YES') return <Badge tone="success" glyph="✓">YES</Badge>;
   if (v === 'NO') return <Badge tone="danger" glyph="✕">NO</Badge>;
@@ -45,10 +63,14 @@ export default function SettlementTab({ claim, onClaimChanged }) {
   const tx = useApi(() => approvalApi.settlement(claim.id), [claim.id]);
   const [retrying, setRetrying] = useState(false);
 
+  // The coordinator is unreachable: the first load failed with 502/503/504, or a background refresh did.
+  const coordinatorDown = isServiceUnavailable(tx.error) || isServiceUnavailable(tx.pollError);
+
   const inFlight = tx.data?.outcome === 'IN_PROGRESS' || (['APPROVED', 'SETTLING'].includes(claim.status) && !tx.data);
-  const watch = inFlight || ['APPROVED', 'SETTLING'].includes(claim.status);
+  // Keep polling while the coordinator is down, so the page recovers as soon as it is back.
+  const watch = inFlight || coordinatorDown || ['APPROVED', 'SETTLING'].includes(claim.status);
   // The review page polls the claim itself; here we only refresh the transaction.
-  useInterval(() => tx.reload({ silent: true }), inFlight ? LIVE_POLL_INTERVAL_MS : POLL_INTERVAL_MS, watch);
+  useInterval(() => tx.reload({ silent: true }), inFlight || coordinatorDown ? LIVE_POLL_INTERVAL_MS : POLL_INTERVAL_MS, watch);
 
   const retry = async () => {
     setRetrying(true);
@@ -64,7 +86,16 @@ export default function SettlementTab({ claim, onClaimChanged }) {
     }
   };
 
-  const canRetry = claim.status === 'SETTLEMENT_FAILED' || (claim.status === 'APPROVED' && !tx.data);
+  const canRetry = !coordinatorDown && (claim.status === 'SETTLEMENT_FAILED' || (claim.status === 'APPROVED' && !tx.data));
+
+  // Nothing loaded yet and the coordinator is down: explain instead of showing a generic error.
+  if (coordinatorDown && !tx.data) {
+    return (
+      <Card>
+        <CoordinatorRestarting stale={false} />
+      </Card>
+    );
+  }
 
   return (
     <AsyncState
@@ -82,6 +113,7 @@ export default function SettlementTab({ claim, onClaimChanged }) {
     >
       {(t) => (
         <div className="stack">
+          {coordinatorDown && <CoordinatorRestarting stale />}
           <Card
             title={<span>Transaction <span className="mono">{t.transactionId}</span>{t.attempt > 1 && <span className="muted small"> · attempt {t.attempt}</span>}</span>}
             actions={(
@@ -108,7 +140,7 @@ export default function SettlementTab({ claim, onClaimChanged }) {
               </ol>
               <div className="row small" style={{ justifyContent: 'center', gap: 24 }}>
                 <span>Amount <strong className="num">{money(t.amount)}</strong></span>
-                <span>Coordinator {t.coordinator === 'UP' ? <Badge tone="success" glyph="●">Up</Badge> : t.coordinator === 'DOWN' ? <Badge tone="danger" glyph="✕">Down</Badge> : <Badge tone="warning" glyph="↻">Recovering</Badge>}</span>
+                <span>Coordinator {coordinatorDown ? <Badge tone="warning" glyph="↻">Restarting</Badge> : t.coordinator === 'UP' ? <Badge tone="success" glyph="●">Up</Badge> : t.coordinator === 'DOWN' ? <Badge tone="danger" glyph="✕">Down</Badge> : <Badge tone="warning" glyph="↻">Recovering</Badge>}</span>
                 <span className="muted">Started {dateTime(t.startedAt)}</span>
                 {t.finishedAt && <span className="muted">Finished {dateTime(t.finishedAt)}</span>}
               </div>
