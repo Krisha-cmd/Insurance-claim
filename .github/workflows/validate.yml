@@ -13,7 +13,7 @@ jobs:
   kubernetes:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install kustomize and kubeconform
         run: |
           curl -sSL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.3/kustomize_v5.4.3_linux_amd64.tar.gz | tar xz
@@ -30,8 +30,8 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@v5
+      - uses: hashicorp/setup-terraform@v4
       - run: terraform -chdir=infra/terraform fmt -recursive -check
       - name: Validate each stack
         run: |
@@ -43,7 +43,11 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: "21", cache: maven }
+      - name: Check the JDK (fail fast if setup-java did not put Java 21 on the PATH)
+        run: |
+          java -version 2>&1 | tee /dev/stderr | grep -q 'version "21' || { echo "::error::Expected Java 21 (setup-java)"; exit 1; }
+          mvn -v
       - run: mvn -B -f backend/pom.xml verify
