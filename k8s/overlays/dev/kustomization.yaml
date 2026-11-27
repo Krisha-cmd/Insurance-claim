@@ -99,31 +99,31 @@ patches:
 images:
 - name: approval
   newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/approval
-  newTag: a7e5507
+  newTag: ddcbe14
 - name: assessment
   newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/assessment
-  newTag: a7e5507
+  newTag: ddcbe14
 - name: claim-intake
   newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/claim-intake
-  newTag: a7e5507
+  newTag: ddcbe14
 - name: eligibility
   newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/eligibility
-  newTag: a7e5507
+  newTag: ddcbe14
 - name: frontend
   newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/frontend
-  newTag: 95bcd76
+  newTag: ddcbe14
 - name: gateway-simulator
   newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/gateway-simulator
-  newTag: a7e5507
+  newTag: ddcbe14
 - name: login
   newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/login
-  newTag: a7e5507
+  newTag: ddcbe14
 - name: ops-dashboard
   newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/ops-dashboard
-  newTag: a7e5507
+  newTag: ddcbe14
 - name: payment
   newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/payment
-  newTag: a7e5507
+  newTag: ddcbe14
 - name: policy
   newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/policy
-  newTag: a7e5507
+  newTag: ddcbe14
