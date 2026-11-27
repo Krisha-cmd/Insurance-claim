@@ -1,6 +1,6 @@
 # Audit Flink Job
 
-The real-time stream processor of the claims platform. It reads every event from the Kafka topic `claim-events`, keeps the audit trail, computes windowed analytics, and writes the results to the `claim-analytics` topic and the DynamoDB table `claims-analytics` (single-table design, see [NoSQL DB](../../../README.md#nosql-db)).
+The real-time stream processor of the claims platform. It reads every event from the Kafka topic `claim-events`, keeps the audit trail, computes windowed analytics, and writes the results to the `claim-aggregates` (1-minute windows) and `claim-analytics` (fraud flags) topics and the DynamoDB table `claims-analytics` (single-table design, see [NoSQL DB](../../../README.md#nosql-db)).
 
 Built for **Apache Flink 1.20** on **Java 17**, which is what EMR `emr-7.6.0` and later run.
 
@@ -17,15 +17,15 @@ flowchart LR
   O --> D
   F -->|count > 2| D
   T --> D
-  O --> R[(Kafka<br/>claim-analytics)]
-  F -->|count > 2| R
+  O --> RA[(Kafka<br/>claim-aggregates)]
+  F -->|count > 2| R[(Kafka<br/>claim-analytics)]
 ```
 
-| Output | DynamoDB `PK` / `SK` | Kafka `claim-analytics` |
+| Output | DynamoDB `PK` / `SK` | Kafka |
 |---|---|---|
 | Audit event, one per input event with a `claimId` | `CLAIM#<claimId>` / `EVENT#<isoTs>#<eventId>`, plus `GSI1PK=TYPE#<eventType>`, `GSI1SK=<isoTs>` | no |
-| Claims overview: counts by `toStatus`, approval rate, total and average claimed, settlement commits and aborts | `METRIC#claims_overview#1m` / `WINDOW#<windowStart>`, `ttl` = 7 days | `{"type":"WindowAggregate",...}` |
-| Fraud flag: more than 2 distinct new claims on one policy in a 10-minute window | `FRAUD#<policyNo>` / `WINDOW#<windowEnd>`, `ttl` = 7 days, plus `GSI1PK=TYPE#FraudFlag`, `GSI1SK=<windowEnd>` (so the Ops Dashboard lists every policy's flags with one Query) | `{"type":"FraudFlag",...}` |
+| Claims overview: counts by `toStatus`, approval rate, total and average claimed, settlement commits and aborts | `METRIC#claims_overview#1m` / `WINDOW#<windowStart>`, `ttl` = 7 days | `claim-aggregates`: `{"type":"WindowAggregate",...}` |
+| Fraud flag: more than 2 distinct new claims on one policy in a 10-minute window | `FRAUD#<policyNo>` / `WINDOW#<windowEnd>`, `ttl` = 7 days, plus `GSI1PK=TYPE#FraudFlag`, `GSI1SK=<windowEnd>` (so the Ops Dashboard lists every policy's flags with one Query) | `claim-analytics`: `{"type":"FraudFlag",...}` |
 | Settlement view: current state of a 3PC transaction | `TX#<txId>` / `STATE` | no |
 
 Every 1-minute slide re-checks the last 10 minutes, so one burst of claims raises a flag in each window that contains it (up to 10 items `FRAUD#<policy>` / `WINDOW#...`, one per window end).
@@ -73,7 +73,9 @@ Each setting is read from a job argument, then an environment variable, then a d
 |---|---|---|
 | `--bootstrap` (or `--bootstrap-servers`) | `KAFKA_BOOTSTRAP` | `localhost:9092` |
 | `--events-topic` (or `--source-topic`) | `EVENTS_TOPIC` | `claim-events` |
-| `--results-topic` | `RESULTS_TOPIC` | `claim-analytics` |
+| `--results-topic` | `RESULTS_TOPIC` | `claim-analytics` (fraud flags) |
+| `--aggregates-topic` | `AGGREGATES_TOPIC` | `claim-aggregates` (1-minute windows) |
+| `--starting-offsets` | `STARTING_OFFSETS` | `committed` (or `earliest` to reprocess the whole topic) |
 | `--table` | `ANALYTICS_TABLE` | `claims-dev-analytics` |
 | `--region` | `AWS_REGION` | `ap-south-1` |
 | `--checkpoint-dir` | `CHECKPOINT_DIR` | `file:///tmp/audit-flink/checkpoints` |
@@ -103,6 +105,10 @@ docker compose exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server loca
 
 ```bash
 docker compose exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic claim-analytics --partitions 1
+```
+
+```bash
+docker compose exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic claim-aggregates --partitions 1
 ```
 
 ```bash
@@ -172,9 +178,14 @@ aws s3 cp ../../../backend/analytics/audit-flink/target/audit-flink.jar s3://$AR
 Step 1 starts a detached Flink YARN session. Step 2 copies the jar to the primary node and runs it in that session:
 
 ```bash
-aws emr add-steps --cluster-id "$CLUSTER_ID" --steps \
-  "Type=CUSTOM_JAR,Name=flink-session,ActionOnFailure=CONTINUE,Jar=command-runner.jar,Args=[flink-yarn-session,-d]" \
-  "Type=CUSTOM_JAR,Name=audit-flink,ActionOnFailure=CONTINUE,Jar=command-runner.jar,Args=[bash,-c,aws s3 cp s3://$ARTIFACTS/flink/audit-flink.jar /home/hadoop/audit-flink.jar && flink run -d /home/hadoop/audit-flink.jar --bootstrap $BROKERS --events-topic claim-events --results-topic claim-analytics --table $TABLE --region $REGION --checkpoint-dir s3://$ARTIFACTS/flink/checkpoints]"
+# The steps go in a JSON file: the CLI's "Type=...,Args=[...]" shorthand splits on commas, which cuts the
+# command at the comma in the broker list, so the job would silently run on its defaults.
+cat > flink-steps.json <<JSON
+[{"Type":"CUSTOM_JAR","Name":"flink-session","ActionOnFailure":"CONTINUE","Jar":"command-runner.jar","Args":["flink-yarn-session","-d"]},
+ {"Type":"CUSTOM_JAR","Name":"audit-flink","ActionOnFailure":"CONTINUE","Jar":"command-runner.jar","Args":["bash","-c",
+  "aws s3 cp s3://$ARTIFACTS/flink/audit-flink.jar /home/hadoop/audit-flink.jar && flink run -d /home/hadoop/audit-flink.jar --bootstrap $BROKERS --events-topic claim-events --results-topic claim-analytics --aggregates-topic claim-aggregates --table $TABLE --region $REGION --checkpoint-dir s3://$ARTIFACTS/flink/checkpoints"]}]
+JSON
+aws emr add-steps --cluster-id "$CLUSTER_ID" --steps file://flink-steps.json && rm flink-steps.json
 ```
 
 ```bash
@@ -191,7 +202,7 @@ src/main/java/com/claims/analytics/
   config/JobConfig.java             arguments / env / defaults
   model/                            ClaimEvent, ClaimsOverview, FraudFlag, SettlementView, EventTypes, Timestamps
   serde/ClaimEventDeserializer.java Kafka JSON -> ClaimEvent (skips bad messages)
-  serde/JsonSerializer.java         result -> claim-analytics JSON
+  serde/JsonSerializer.java         result -> claim-aggregates / claim-analytics JSON
   functions/                        ClaimsOverviewAggregate + WindowFunction, FraudCountAggregate + FraudFlagWindowFunction,
                                     SettlementViewFunction
   sinks/DynamoItems.java            single-table items and the DynamoDB sink element converters

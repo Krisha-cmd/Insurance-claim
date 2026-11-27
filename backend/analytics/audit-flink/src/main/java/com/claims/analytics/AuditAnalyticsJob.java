@@ -44,14 +44,16 @@ import java.util.Properties;
  * <pre>
  *                        ┌─▶ audit trail ─────────────────────────────▶ DynamoDB CLAIM#id / EVENT#ts#eventId
  * Kafka claim-events ──▶─┼─▶ 1 min tumbling  claims overview ──┬─────▶ DynamoDB METRIC#claims_overview#1m
- * (event time,           │                                     └─────▶ Kafka claim-analytics
- *  10 s out-of-order)    ├─▶ keyBy policyNo, 10 min / 1 min sliding ─▶ fraud flags ─▶ DynamoDB FRAUD# + Kafka
+ * (event time,           │                                     └─────▶ Kafka claim-aggregates
+ *  10 s out-of-order)    ├─▶ keyBy policyNo, 10 min / 1 min sliding ─▶ fraud flags ─▶ DynamoDB FRAUD# + Kafka claim-analytics
  *                        └─▶ keyBy txId, keyed state (1 day TTL) ───▶ DynamoDB TX#txId / STATE
  * </pre>
  */
 public final class AuditAnalyticsJob {
 
     public static final Duration MAX_OUT_OF_ORDERNESS = Duration.ofSeconds(10);
+    /** A Kafka partition with no event for this long lets the watermark follow the wall clock. */
+    public static final Duration CLOCK_ADVANCE_AFTER = Duration.ofSeconds(5);
     /** A Kafka partition with no traffic for this long stops holding back the watermark. */
     public static final Duration SOURCE_IDLENESS = Duration.ofMinutes(1);
     public static final Duration OVERVIEW_WINDOW = Duration.ofMinutes(1);
@@ -87,7 +89,9 @@ public final class AuditAnalyticsJob {
                 .setBootstrapServers(config.bootstrap())
                 .setTopics(config.eventsTopic())
                 .setGroupId(JobConfig.GROUP_ID)
-                .setStartingOffsets(OffsetsInitializer.committedOffsets(OffsetResetStrategy.EARLIEST))
+                .setStartingOffsets("earliest".equals(config.startingOffsets())
+                        ? OffsetsInitializer.earliest()
+                        : OffsetsInitializer.committedOffsets(OffsetResetStrategy.EARLIEST))
                 .setValueOnlyDeserializer(new ClaimEventDeserializer())
                 .build();
 
@@ -107,15 +111,24 @@ public final class AuditAnalyticsJob {
         out.settlement().sinkTo(dynamoSink(config, DynamoItems.settlementConverter()))
                 .name("dynamodb-settlement").uid("dynamodb-settlement");
 
-        // claim-analytics topic: window aggregates and fraud flags as JSON.
-        DataStream<String> results = out.overview().map(new JsonSerializer<ClaimsOverview>()).name("overview-json")
-                .union(out.fraud().map(new JsonSerializer<FraudFlag>()).name("fraud-json"));
-        results.sinkTo(kafkaSink(config)).name("kafka-claim-analytics").uid("kafka-claim-analytics");
+        // claim-aggregates topic: one JSON record per closed 1-minute window.
+        out.overview().map(new JsonSerializer<ClaimsOverview>()).name("overview-json").uid("overview-json")
+                .sinkTo(kafkaSink(config, config.aggregatesTopic()))
+                .name("kafka-claim-aggregates").uid("kafka-claim-aggregates");
+        // claim-analytics topic: fraud flags (alerts) as JSON.
+        out.fraud().map(new JsonSerializer<FraudFlag>()).name("fraud-json").uid("fraud-json")
+                .sinkTo(kafkaSink(config, config.resultsTopic()))
+                .name("kafka-claim-analytics").uid("kafka-claim-analytics");
     }
 
-    /** Event time = {@code occurredAt}, with 10 s bounded out-of-orderness. */
+    /**
+     * Event time = {@code occurredAt}, with 10 s bounded out-of-orderness. A partition that has been quiet for
+     * {@link #CLOCK_ADVANCE_AFTER} lets the watermark follow the wall clock, so the last minute's window closes
+     * about 10 s after the minute ends even when no later event arrives ({@link IdleAdvancingWatermarks}).
+     */
     public static WatermarkStrategy<ClaimEvent> watermarkStrategy() {
-        return WatermarkStrategy.<ClaimEvent>forBoundedOutOfOrderness(MAX_OUT_OF_ORDERNESS)
+        return WatermarkStrategy.<ClaimEvent>forGenerator(ctx ->
+                        new IdleAdvancingWatermarks(MAX_OUT_OF_ORDERNESS, CLOCK_ADVANCE_AFTER, System::currentTimeMillis))
                 .withTimestampAssigner((event, recordTs) -> event.getOccurredAt())
                 .withIdleness(SOURCE_IDLENESS);
     }
@@ -175,11 +188,11 @@ public final class AuditAnalyticsJob {
                 .build();
     }
 
-    private static KafkaSink<String> kafkaSink(JobConfig config) {
+    private static KafkaSink<String> kafkaSink(JobConfig config, String topic) {
         return KafkaSink.<String>builder()
                 .setBootstrapServers(config.bootstrap())
                 .setRecordSerializer(KafkaRecordSerializationSchema.builder()
-                        .setTopic(config.resultsTopic())
+                        .setTopic(topic)
                         .setValueSerializationSchema(new SimpleStringSchema())
                         .build())
                 .setDeliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)

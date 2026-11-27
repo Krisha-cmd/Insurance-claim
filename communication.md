@@ -6,7 +6,7 @@ Every way the parts of the claims platform talk to each other, which protocol ea
 |---|---|---|
 | [REST over HTTP/JSON](#1-rest-http--json) | synchronous request/response | browser → services, through the ALB; payment → gateway simulator; ops-dashboard → chaos endpoints; services → login for the JWT keys |
 | [gRPC over HTTP/2 + Protobuf](#2-grpc) | synchronous request/response | service → service inside the cluster, including the 3PC settlement |
-| [Kafka (Amazon MSK)](#3-kafka-publishsubscribe) | asynchronous publish/subscribe | every service → `claim-events` → the Flink audit job → `claim-analytics` and DynamoDB |
+| [Kafka (Amazon MSK)](#3-kafka-publishsubscribe) | asynchronous publish/subscribe | every service → `claim-events` → the Flink audit job → `claim-aggregates`, `claim-analytics` and DynamoDB |
 | [SQS](#4-sqs-point-to-point-queues) | asynchronous point-to-point queue | S3 → Lambda → Claim Intake, for document verification |
 | [S3 event notifications](#5-s3-event-notifications) | asynchronous push | S3 → SQS when a document is uploaded |
 | [AWS SDK calls](#6-aws-sdk-calls-https) | synchronous HTTPS | pods and the Lambda → S3, SQS, DynamoDB, using IAM roles |
@@ -52,7 +52,8 @@ flowchart LR
 
   EKS -- "produce" --> K1{{Kafka claim-events}}
   K1 --> FLINK[Flink audit job<br/>on EMR]
-  FLINK --> K2{{Kafka claim-analytics}}
+  FLINK --> K2{{Kafka claim-aggregates}}
+  FLINK --> K3{{Kafka claim-analytics}}
   FLINK --> DDB[(DynamoDB analytics)]
   DDB -- "AWS SDK" --> OPS
 ```
@@ -158,7 +159,8 @@ Created by the `kafka-topics` Job in the platform stack, with 3 partitions each:
 | Topic | Produced by | Consumed by | Contents |
 |---|---|---|---|
 | `claim-events` | seven services: policy, claim-intake, eligibility, assessment, approval, payment, ops-dashboard (everything except login and the gateway simulator) | the Flink audit job | every state change and decision: claim created, `DOCUMENT_VERIFIED` / `DOCUMENT_REJECTED`, eligibility and assessment results, adjuster overrides with their justification, every 3PC phase and vote, payments, chaos actions |
-| `claim-analytics` | the Flink audit job | open for downstream consumers (none in this repo yet) | the 1-minute claims overview windows and fraud flags, as JSON |
+| `claim-aggregates` | the Flink audit job | open for downstream consumers (none in this repo yet) | one JSON record per closed 1-minute claims overview window ([analytics.md](analytics.md)) |
+| `claim-analytics` | the Flink audit job | open for downstream consumers (none in this repo yet) | fraud flags (alerts), as JSON |
 | `doc-verified` | (reserved) | (none) | created for a document-verified stream, but the results actually travel over SQS (section 4), and the audit event goes to `claim-events` |
 
 ### How events are produced
@@ -179,8 +181,8 @@ All services use one shared publisher, [EventPublishers](backend/common/src/main
 | Output | Sink |
 |---|---|
 | The audit trail: every event, per claim | DynamoDB |
-| Claims overview: a **1-minute tumbling window** of counts and amounts | DynamoDB and `claim-analytics` |
-| Fraud flags: a **10-minute sliding window**, moving every minute, flagging repeat claims per policy (threshold 2) | DynamoDB and `claim-analytics` |
+| Claims overview: a **1-minute tumbling window** of counts and amounts | DynamoDB and `claim-aggregates` |
+| Fraud flags: a **10-minute sliding window**, moving every minute, flagging more than 2 new claims per policy | DynamoDB and `claim-analytics` |
 | Settlement records | DynamoDB |
 
 Checkpoints go to S3, so the job resumes from its last Kafka offsets after a restart. The ops-dashboard then serves this data to the adjuster console from DynamoDB (`/api/audit`, `/api/analytics`).

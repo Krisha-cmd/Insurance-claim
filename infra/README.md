@@ -20,7 +20,7 @@ The code is split into three **stacks**. A stack is a folder you run `terraform`
 | **EKS** `claims-dev` (Kubernetes 1.33) with 2 × `t3.large` nodes (4 vCPU, 16 GiB in total), plus the EBS CSI driver and a default `gp3` StorageClass | Runs the services, ArgoCD and monitoring | $0.10 + ~$0.18 |
 | **ECR**: 10 repositories (`claims-dev/<service>`, frontend included) | Container images | storage only |
 | **RDS PostgreSQL 16**, `db.t4g.micro`, 20 GB gp3, single-AZ | One database per service. The master password lives in Secrets Manager | ~$0.02 |
-| **MSK** Kafka 3.8.x, 2 × `kafka.t3.small` | Event bus between services (`claim-events`, `claim-analytics`, `doc-verified`) | ~$0.09 |
+| **MSK** Kafka 3.8.x, 2 × `kafka.t3.small` | Event bus between services (`claim-events`, `claim-aggregates`, `claim-analytics`, `doc-verified`) | ~$0.09 |
 | **EMR** 7.6.0 (Flink 1.20 + Hadoop), a single-node cluster: 1 primary `m5.xlarge` (no core nodes; YARN and Flink run on the primary). Stops itself after 2 h idle | Runs the Audit Flink job (Kafka → results topic + DynamoDB) | ~$0.25 |
 | **Lambda** `document-verification` (Java 21, SnapStart) | Event-driven, asynchronous document checks | per use (pennies) |
 | **SQS** `doc-upload-events` and `doc-verification-results`, each with a dead-letter queue | S3 → Lambda → Claim Intake | per use (pennies) |
@@ -215,9 +215,14 @@ REGION=ap-south-1   # the region in dev.tfvars
 aws s3 cp ../../../backend/analytics/audit-flink/target/audit-flink.jar s3://$ARTIFACTS/flink/audit-flink.jar
 
 # step 1: start a detached Flink YARN session; step 2: copy the jar to the primary node and run it in that session
-aws emr add-steps --cluster-id "$CLUSTER_ID" --steps \
-  "Type=CUSTOM_JAR,Name=flink-session,ActionOnFailure=CONTINUE,Jar=command-runner.jar,Args=[flink-yarn-session,-d]" \
-  "Type=CUSTOM_JAR,Name=audit-flink,ActionOnFailure=CONTINUE,Jar=command-runner.jar,Args=[bash,-c,aws s3 cp s3://$ARTIFACTS/flink/audit-flink.jar /home/hadoop/audit-flink.jar && flink run -d /home/hadoop/audit-flink.jar --bootstrap $BROKERS --events-topic claim-events --results-topic claim-analytics --table $TABLE --region $REGION --checkpoint-dir s3://$ARTIFACTS/flink/checkpoints]"
+# The steps go in a JSON file: the CLI's "Type=...,Args=[...]" shorthand splits on commas, which cuts the
+# command at the comma in the broker list, so the job would silently run on its defaults.
+cat > flink-steps.json <<JSON
+[{"Type":"CUSTOM_JAR","Name":"flink-session","ActionOnFailure":"CONTINUE","Jar":"command-runner.jar","Args":["flink-yarn-session","-d"]},
+ {"Type":"CUSTOM_JAR","Name":"audit-flink","ActionOnFailure":"CONTINUE","Jar":"command-runner.jar","Args":["bash","-c",
+  "aws s3 cp s3://$ARTIFACTS/flink/audit-flink.jar /home/hadoop/audit-flink.jar && flink run -d /home/hadoop/audit-flink.jar --bootstrap $BROKERS --events-topic claim-events --results-topic claim-analytics --aggregates-topic claim-aggregates --table $TABLE --region $REGION --checkpoint-dir s3://$ARTIFACTS/flink/checkpoints"]}]
+JSON
+aws emr add-steps --cluster-id "$CLUSTER_ID" --steps file://flink-steps.json && rm flink-steps.json
 
 aws emr list-steps --cluster-id "$CLUSTER_ID" --query 'Steps[].{Name:Name,State:Status.State}' --output table
 ```

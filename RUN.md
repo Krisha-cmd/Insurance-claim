@@ -193,10 +193,15 @@ $TABLE = terraform output -raw analytics_table_name
 # 4. Upload JAR to S3
 aws s3 cp ../../../backend/analytics/audit-flink/target/audit-flink.jar "s3://$ARTIFACTS/flink/audit-flink.jar"
 
-# 5. Submit EMR steps
-aws emr add-steps --cluster-id $CLUSTER_ID --steps `
-    "Type=CUSTOM_JAR,Name=flink-session,ActionOnFailure=CONTINUE,Jar=command-runner.jar,Args=[flink-yarn-session,-d]" `
-    "Type=CUSTOM_JAR,Name=audit-flink,ActionOnFailure=CONTINUE,Jar=command-runner.jar,Args=[bash,-c,aws s3 cp s3://$ARTIFACTS/flink/audit-flink.jar /home/hadoop/audit-flink.jar && flink run -d /home/hadoop/audit-flink.jar --bootstrap $BROKERS --events-topic claim-events --results-topic claim-analytics --table $TABLE --region ap-south-1 --checkpoint-dir s3://$ARTIFACTS/flink/checkpoints]"
+# 5. Submit EMR steps. They go in a JSON file: the CLI's "Type=...,Args=[...]" shorthand splits on commas,
+#    which cuts the command at the comma in the broker list, so the job would silently run on its defaults.
+$SCRIPT = "aws s3 cp s3://$ARTIFACTS/flink/audit-flink.jar /home/hadoop/audit-flink.jar && flink run -d /home/hadoop/audit-flink.jar --bootstrap $BROKERS --events-topic claim-events --results-topic claim-analytics --aggregates-topic claim-aggregates --table $TABLE --region ap-south-1 --checkpoint-dir s3://$ARTIFACTS/flink/checkpoints"
+@(
+    @{ Type = "CUSTOM_JAR"; Name = "flink-session"; ActionOnFailure = "CONTINUE"; Jar = "command-runner.jar"; Args = @("flink-yarn-session", "-d") },
+    @{ Type = "CUSTOM_JAR"; Name = "audit-flink";   ActionOnFailure = "CONTINUE"; Jar = "command-runner.jar"; Args = @("bash", "-c", $SCRIPT) }
+) | ConvertTo-Json -Depth 4 | Set-Content -Encoding ascii flink-steps.json
+aws emr add-steps --cluster-id $CLUSTER_ID --steps file://flink-steps.json
+Remove-Item flink-steps.json
 
 # 6. Return to original directory
 Pop-Location

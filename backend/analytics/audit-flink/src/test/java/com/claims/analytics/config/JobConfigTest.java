@@ -21,7 +21,24 @@ class JobConfigTest {
         assertThat(c.checkpointDir()).isEqualTo("s3://a/flink/checkpoints");
         assertThat(c.eventsTopic()).isEqualTo("claim-events");
         assertThat(c.resultsTopic()).isEqualTo("claim-analytics");
+        assertThat(c.aggregatesTopic()).isEqualTo("claim-aggregates");
+        assertThat(c.startingOffsets()).isEqualTo("committed");
         assertThat(c.dynamoDbEndpoint()).isNull();
+    }
+
+    @Test
+    void readsTheAggregatesTopicAndStartingOffsets() {
+        JobConfig c = JobConfig.fromArgs(
+                new String[]{"--aggregates-topic", "aggs", "--starting-offsets", "EARLIEST"}, k -> null);
+
+        assertThat(c.aggregatesTopic()).isEqualTo("aggs");
+        assertThat(c.startingOffsets()).isEqualTo("earliest");
+    }
+
+    @Test
+    void rejectsUnknownStartingOffsets() {
+        assertThatThrownBy(() -> JobConfig.fromArgs(new String[]{"--starting-offsets", "latest"}, k -> null))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

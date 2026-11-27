@@ -12,7 +12,9 @@ import java.util.function.Function;
  * <pre>
  * --bootstrap        (alias --bootstrap-servers)  env KAFKA_BOOTSTRAP     default localhost:9092
  * --events-topic     (alias --source-topic)       env EVENTS_TOPIC        default claim-events
- * --results-topic                                 env RESULTS_TOPIC       default claim-analytics
+ * --results-topic                                 env RESULTS_TOPIC       default claim-analytics   (fraud flags)
+ * --aggregates-topic                              env AGGREGATES_TOPIC    default claim-aggregates  (1-minute windows)
+ * --starting-offsets  committed | earliest        env STARTING_OFFSETS    default committed
  * --table                                         env ANALYTICS_TABLE     default claims-dev-analytics
  * --region                                        env AWS_REGION          default ap-south-1
  * --checkpoint-dir                                env CHECKPOINT_DIR      default file:///tmp/audit-flink/checkpoints
@@ -23,10 +25,12 @@ public record JobConfig(
         String bootstrap,
         String eventsTopic,
         String resultsTopic,
+        String aggregatesTopic,
         String table,
         String region,
         String checkpointDir,
-        String dynamoDbEndpoint) implements Serializable {
+        String dynamoDbEndpoint,
+        String startingOffsets) implements Serializable {
 
     public static final String GROUP_ID = "audit-flink";
 
@@ -40,10 +44,25 @@ public record JobConfig(
                 pick(a, env, List.of("bootstrap", "bootstrap-servers"), "KAFKA_BOOTSTRAP", "localhost:9092"),
                 pick(a, env, List.of("events-topic", "source-topic"), "EVENTS_TOPIC", "claim-events"),
                 pick(a, env, List.of("results-topic"), "RESULTS_TOPIC", "claim-analytics"),
+                pick(a, env, List.of("aggregates-topic"), "AGGREGATES_TOPIC", "claim-aggregates"),
                 pick(a, env, List.of("table"), "ANALYTICS_TABLE", "claims-dev-analytics"),
                 pick(a, env, List.of("region"), "AWS_REGION", "ap-south-1"),
                 pick(a, env, List.of("checkpoint-dir"), "CHECKPOINT_DIR", "file:///tmp/audit-flink/checkpoints"),
-                pick(a, env, List.of("dynamodb-endpoint"), "DYNAMODB_ENDPOINT", null));
+                pick(a, env, List.of("dynamodb-endpoint"), "DYNAMODB_ENDPOINT", null),
+                startingOffsets(pick(a, env, List.of("starting-offsets"), "STARTING_OFFSETS", "committed")));
+    }
+
+    /**
+     * committed: resume from the consumer group's committed offsets (earliest when there are none); the normal case.
+     * earliest: reprocess the whole topic, e.g. after a topology change. Safe, because every DynamoDB write is a
+     * PUT on a deterministic key, so reprocessing overwrites the same items.
+     */
+    private static String startingOffsets(String value) {
+        String v = value.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!v.equals("committed") && !v.equals("earliest")) {
+            throw new IllegalArgumentException("--starting-offsets must be committed or earliest, not " + value);
+        }
+        return v;
     }
 
     private static Map<String, String> parse(String[] args) {
