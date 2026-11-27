@@ -80,6 +80,12 @@ variable "ingress_allowed_cidrs" {
   default     = ["0.0.0.0/0"]
 }
 
+variable "grafana_allowed_cidrs" {
+  description = "Source CIDRs allowed through Grafana's ALB. null = the same as ingress_allowed_cidrs."
+  type        = list(string)
+  default     = null
+}
+
 # ---------------------------------------------------------------- data / messaging
 variable "db_services" {
   description = "One PostgreSQL database + owner user + <name>-db Secret is created per entry."
@@ -90,7 +96,7 @@ variable "db_services" {
 variable "kafka_topics" {
   description = "Kafka topics created by the kafka-topics Job (when MSK is enabled)."
   type        = list(string)
-  default     = ["claim-events", "claim-analytics", "doc-verified"]
+  default     = ["claim-events", "claim-aggregates", "claim-analytics", "doc-verified"]
 }
 
 variable "kafka_topic_partitions" {

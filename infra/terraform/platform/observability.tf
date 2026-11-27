@@ -101,6 +101,8 @@ locals {
         pathType         = "Prefix"
         annotations = merge(local.alb_ingress_annotations, {
           "alb.ingress.kubernetes.io/healthcheck-path" = "/api/health"
+          # Grafana can have its own allow-list (it has a login); Argo CD keeps ingress_allowed_cidrs.
+          "alb.ingress.kubernetes.io/inbound-cidrs" = join(",", coalesce(var.grafana_allowed_cidrs, var.ingress_allowed_cidrs))
         })
       }
     }
