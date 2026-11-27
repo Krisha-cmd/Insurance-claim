@@ -1,0 +1,33 @@
+# A throwaway PostgreSQL client inside the cluster, for connecting to RDS as the master user.
+#
+# RDS is in private subnets and only accepts the EKS nodes' security group, so connect from a pod
+# instead of opening the database to the internet. The pod reads PGHOST, PGPORT, PGUSER, PGPASSWORD,
+# PGDATABASE and PGSSLMODE from the db-init-master Secret (created by infra/terraform/platform), so
+# `psql` connects with no arguments and the password never leaves the cluster.
+#
+#   kubectl apply -f k8s/tools/psql-client.yaml
+#   kubectl -n claims wait --for=condition=Ready pod/psql
+#   kubectl -n claims exec -it psql -- psql                  # the postgres database
+#   kubectl -n claims exec -it psql -- psql -d claims        # one service's database
+#   kubectl delete -f k8s/tools/psql-client.yaml             # when you are done (it also stops itself after 24 h)
+#
+# Not part of any Kustomize overlay: Argo CD never deploys it.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: psql
+  namespace: claims
+  labels:
+    app.kubernetes.io/name: psql-client
+spec:
+  restartPolicy: Never
+  containers:
+    - name: psql
+      image: postgres:16
+      command: ["sleep", "86400"]
+      envFrom:
+        - secretRef:
+            name: db-init-master
+      resources:
+        requests: { cpu: 10m, memory: 32Mi }
+        limits: { memory: 128Mi }

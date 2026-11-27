@@ -1,0 +1,346 @@
+{
+ "metrics": {
+  "http_req_duration": {
+   "thresholds": {
+    "p(95)<1000": {
+     "ok": true
+    }
+   },
+   "type": "trend",
+   "contains": "time",
+   "values": {
+    "avg": 91.19509051946326,
+    "min": 43.9504,
+    "med": 75.47540000000001,
+    "p(90)": 135.1914,
+    "p(95)": 187.90953,
+    "p(99)": 299.3291039999999,
+    "max": 2918.4433
+   }
+  },
+  "http_req_duration{expected_response:true}": {
+   "type": "trend",
+   "contains": "time",
+   "values": {
+    "med": 75.47540000000001,
+    "p(90)": 135.1914,
+    "p(95)": 187.90953,
+    "p(99)": 299.3291039999999,
+    "max": 2918.4433,
+    "avg": 91.19509051946326,
+    "min": 43.9504
+   }
+  },
+  "http_req_tls_handshaking": {
+   "type": "trend",
+   "contains": "time",
+   "values": {
+    "avg": 0,
+    "min": 0,
+    "med": 0,
+    "p(90)": 0,
+    "p(95)": 0,
+    "p(99)": 0,
+    "max": 0
+   }
+  },
+  "vus_max": {
+   "type": "gauge",
+   "contains": "default",
+   "values": {
+    "value": 165,
+    "min": 155,
+    "max": 165
+   }
+  },
+  "http_req_duration{name:POST /api/auth/login}": {
+   "type": "trend",
+   "contains": "time",
+   "values": {
+    "avg": 227.50361112270443,
+    "min": 136.1492,
+    "med": 197.52190000000002,
+    "p(90)": 329.83016000000003,
+    "p(95)": 412.3105799999999,
+    "p(99)": 634.1040430000008,
+    "max": 2019.1858
+   },
+   "thresholds": {
+    "p(95)<1500": {
+     "ok": true
+    }
+   }
+  },
+  "http_req_failed": {
+   "type": "rate",
+   "contains": "default",
+   "values": {
+    "rate": 0,
+    "passes": 0,
+    "fails": 97062
+   },
+   "thresholds": {
+    "rate<0.01": {
+     "ok": true
+    }
+   }
+  },
+  "http_req_connecting": {
+   "type": "trend",
+   "contains": "time",
+   "values": {
+    "p(99)": 0,
+    "max": 284.9755,
+    "avg": 0.11501860151243537,
+    "min": 0,
+    "med": 0,
+    "p(90)": 0,
+    "p(95)": 0
+   }
+  },
+  "vus": {
+   "type": "gauge",
+   "contains": "default",
+   "values": {
+    "value": 2,
+    "min": 0,
+    "max": 160
+   }
+  },
+  "http_req_waiting": {
+   "type": "trend",
+   "contains": "time",
+   "values": {
+    "p(90)": 133.6733,
+    "p(95)": 186.56781999999995,
+    "p(99)": 297.7593269999999,
+    "max": 2914.6968,
+    "avg": 90.35287417630012,
+    "min": 43.234,
+    "med": 74.75274999999999
+   }
+  },
+  "iteration_duration": {
+   "type": "trend",
+   "contains": "time",
+   "values": {
+    "p(90)": 3085.29404,
+    "p(95)": 3235.05074,
+    "p(99)": 3423.5732759999987,
+    "max": 6532.2157,
+    "avg": 1966.5651077699254,
+    "min": 254.0275,
+    "med": 2096.0659
+   }
+  },
+  "iterations": {
+   "type": "counter",
+   "contains": "default",
+   "values": {
+    "count": 25277,
+    "rate": 42.03808898363932
+   }
+  },
+  "dropped_iterations": {
+   "values": {
+    "count": 10,
+    "rate": 0.016630964506721257
+   },
+   "type": "counter",
+   "contains": "default"
+  },
+  "http_req_receiving": {
+   "type": "trend",
+   "contains": "time",
+   "values": {
+    "p(99)": 11.516169999999986,
+    "max": 330.7577,
+    "avg": 0.8309807700232924,
+    "min": 0,
+    "med": 0,
+    "p(90)": 1.5485900000000008,
+    "p(95)": 2.8579
+   }
+  },
+  "checks": {
+   "values": {
+    "rate": 1,
+    "passes": 92271,
+    "fails": 0
+   },
+   "thresholds": {
+    "rate>0.99": {
+     "ok": true
+    }
+   },
+   "type": "rate",
+   "contains": "default"
+  },
+  "http_reqs": {
+   "type": "counter",
+   "contains": "default",
+   "values": {
+    "count": 97062,
+    "rate": 161.42346769513784
+   }
+  },
+  "data_received": {
+   "type": "counter",
+   "contains": "data",
+   "values": {
+    "count": 269916397,
+    "rate": 448897.00182890834
+   }
+  },
+  "http_req_sending": {
+   "contains": "time",
+   "values": {
+    "p(90)": 0,
+    "p(95)": 0,
+    "p(99)": 0.5187,
+    "max": 3.1398,
+    "avg": 0.01123557313881848,
+    "min": 0,
+    "med": 0
+   },
+   "type": "trend"
+  },
+  "http_req_blocked": {
+   "type": "trend",
+   "contains": "time",
+   "values": {
+    "p(99)": 0,
+    "max": 284.9755,
+    "avg": 0.12004481053347346,
+    "min": 0,
+    "med": 0,
+    "p(90)": 0,
+    "p(95)": 0
+   }
+  },
+  "data_sent": {
+   "type": "counter",
+   "contains": "data",
+   "values": {
+    "count": 90072260,
+    "rate": 149798.85591001686
+   }
+  }
+ },
+ "setup_data": {
+  "adjuster": "eyJraWQiOiJrN29PbFp3ZGNkS3lDNVV5WlM0aThwWGhVOUJHYldMWWdxOE9YZzFqamRFIiwidHlwIjoiSldUIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiI5OTdiYWNkMC01YjI5LTQ1NTQtYjM5OC01MmU5Zjg5YmZhNmMiLCJyb2xlIjoiQURKVVNURVIiLCJpc3MiOiJjbGFpbXMtbG9naW4iLCJuYW1lIjoiUm9oYW4gTWVodGEiLCJleHAiOjE3OTU3Njk2MDgsImlhdCI6MTc5NTc2NjAwOCwianRpIjoiZDNkOGZlOTYtMmNmMy00ZjU0LTk5ZjQtZmY2NWUxOWY5YWYxIn0.I-mSOdPLXn-kxIuDmND3d7GBk4wYrAmW-DmTeG2TzNlLKmN64aVBSELy-R-tHmYknQgh87JOz6jZKdiG493YCsoB9yAgqIG6j5e6H2b8zxqw1G9Y-07uHql1S1G9oa3jQE594FaMI_th89vGZoE9WUVqknRnO4Kc9BAQf0pmrHU9zTrEZ5iIGaIkNFiPOtXAuschJAMpfrvrGvgrWgQfGAC6m0AUiYDPD8WkPXg7VRwoDNeO_LPKIXlvV_s9_75kWDleHdDn5RKrHvosZWGAk-UMuYfG-n1BQ7aBA1hDNNvBwsa3aX457rwsbZFR9JrvBO7dFkO5z_c6pQ56K8ZhpA",
+  "memberId": "567dacf4-a6e5-461f-b094-8ded155a5a7e",
+  "patient": "eyJraWQiOiJrN29PbFp3ZGNkS3lDNVV5WlM0aThwWGhVOUJHYldMWWdxOE9YZzFqamRFIiwidHlwIjoiSldUIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiI0ZTMzMjMzYy1hMjU1LTRjNzUtOTYzYS02ODA5Y2QzYjBjZGQiLCJyb2xlIjoiUE9MSUNZSE9MREVSIiwiaXNzIjoiY2xhaW1zLWxvZ2luIiwibmFtZSI6IkFzaGEgVmVybWEiLCJwb2xpY3lob2xkZXJJZCI6ImEyYjU2MzIxLWM4YjgtNDE1OS05M2Q2LTNjZjYxM2IzYzU1NiIsImV4cCI6MTc5NTc2OTYwOCwiaWF0IjoxNzk1NzY2MDA4LCJqdGkiOiI2NmEyMmYxNC05NmYwLTQ0NDQtYjQ2OC1lOTczODQ5MGU2NzcifQ.S-ajm_3NRJehid1HWWmQrA1DQWH5E8OhhWginc3tjYgZYUd7oNUkMd3MQr817bRu6AM08lbZc9zsfGgIkWH26O3QVM0sHRT0idURlHtNqz90lXkfnyXkNGz6eQYPz6M1S1vso1gQaHo8vxAhlMPSiFitoe5EuO1cpi8tAZde2mhI0Lj5nZzdCWq8fSRYTM1HZeNRRYOoeuHBCpO_H4CSjxzhk2epngScmcHdFXTqnxQj2PCQ3_KL3ngMVswvZ3OcbP-9jRNZXECllB7BJLMzVHIONg9FYU0iV1K8aOCX1v19EJiTf12FptKTalDrlFG3n-CUkVHSnOceeNkRC7US3A",
+  "policyNumber": "POL-2026-00017"
+ },
+ "root_group": {
+  "groups": [
+   {
+    "groups": [],
+    "checks": [
+      {
+       "id": "647055af8ffe21e58084ae4b140cdda0",
+       "passes": 2,
+       "fails": 0,
+       "name": "login 200",
+       "path": "::setup::login 200"
+      }
+     ],
+    "name": "setup",
+    "path": "::setup",
+    "id": "5c0f8025f7e0b6654089e5b00e950f1a"
+   }
+  ],
+  "checks": [
+   {
+    "id": "69aaa12df51fb40c369cc4c2f2657505",
+    "passes": 13905,
+    "fails": 0,
+    "name": "policy 200",
+    "path": "::policy 200"
+   },
+   {
+    "passes": 13905,
+    "fails": 0,
+    "name": "coverage 200",
+    "path": "::coverage 200",
+    "id": "27ad0b7cd21e0e3ff46c6ae5cbfdd82e"
+   },
+   {
+    "name": "my claims 200",
+    "path": "::my claims 200",
+    "id": "6d797811f7328fc59ea6b7a6df49acdc",
+    "passes": 13905,
+    "fails": 0
+   },
+   {
+    "name": "claim 200",
+    "path": "::claim 200",
+    "id": "58f77a4ae226f33c11634a388f6cb288",
+    "passes": 13905,
+    "fails": 0
+   },
+   {
+    "name": "status 200",
+    "path": "::status 200",
+    "id": "fad9fa412b86fcb03bee97c80dcd61f1",
+    "passes": 13905,
+    "fails": 0
+   },
+   {
+    "name": "login 200",
+    "path": "::login 200",
+    "id": "48b06dc5cde7f6ebb606ad7da726a2a5",
+    "passes": 4790,
+    "fails": 0
+   },
+   {
+    "name": "me 200",
+    "path": "::me 200",
+    "id": "30e7556edf82eff0e3762598c402eb40",
+    "passes": 4790,
+    "fails": 0
+   },
+   {
+    "fails": 0,
+    "name": "queue 200",
+    "path": "::queue 200",
+    "id": "ec9a137c8676bcebf7dc1bcc29bd4b20",
+    "passes": 6582
+   },
+   {
+    "path": "::search 200",
+    "id": "f1430541508c538fdf29bbd85cfe5de5",
+    "passes": 6582,
+    "fails": 0,
+    "name": "search 200"
+   }
+  ],
+  "name": "",
+  "path": "",
+  "id": "d41d8cd98f00b204e9800998ecf8427e"
+ },
+ "options": {
+  "summaryTrendStats": [
+   "avg",
+   "min",
+   "med",
+   "p(90)",
+   "p(95)",
+   "p(99)",
+   "max"
+  ],
+  "summaryTimeUnit": "",
+  "noColor": false
+ },
+ "state": {
+  "isStdErrTTY": false,
+  "testRunDurationMs": 601288.0369,
+  "isStdOutTTY": false
+ },
+ "meta": {
+  "baseUrl": "http://k8s-claims-8285bb1f19-797935702.ap-south-1.elb.amazonaws.com",
+  "profile": "stress",
+  "writes": false
+ }
+}
