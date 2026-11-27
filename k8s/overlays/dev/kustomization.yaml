@@ -111,7 +111,7 @@ images:
   newTag: a7e5507
 - name: frontend
   newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/frontend
-  newTag: a7e5507
+  newTag: 95bcd76
 - name: gateway-simulator
   newName: 539022480660.dkr.ecr.ap-south-1.amazonaws.com/claims-dev/gateway-simulator
   newTag: a7e5507
