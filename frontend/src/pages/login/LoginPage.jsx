@@ -44,7 +44,7 @@ export default function LoginPage() {
           <span className={s.logo} aria-hidden="true">✚</span>
           <span className={s.brandName}>CareClaim</span>
         </div>
-        <h1 className={s.title}>Sign into our portal</h1>
+        <h1 className={s.title}>Sign in</h1>
         <p className={s.subtitle}>File and track medical claims, or review them as an adjuster.</p>
 
         {params.get('expired') && !submitError && (
